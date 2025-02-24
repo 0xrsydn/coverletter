@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="wireframe">
+<html lang="en" data-theme="retro">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -34,7 +34,13 @@
                             accept=".pdf,.docx" 
                             class="file-input file-input-bordered file-input-primary w-full bg-white text-gray-800" 
                             required 
+                            hx-post="http://localhost:8000/parse_document"
+                            hx-trigger="change"
+                            hx-target="#cv_parsed_text"
+                            hx-swap="innerHTML"
+                            hx-encoding="multipart/form-data"
                         >
+                        <textarea id="cv_parsed_text" name="cv_parsed_text" hidden></textarea>
                     </div>
 
                     <!-- Job Description (Text) -->
@@ -63,13 +69,19 @@
                             name="job_desc_image" 
                             accept="image/*" 
                             class="file-input file-input-bordered file-input-primary w-full bg-white text-gray-800" 
+                            hx-post="http://localhost:8000/analyze_job_desc_image"
+                            hx-trigger="change"
+                            hx-target="#job_desc_text"
+                            hx-swap="innerHTML"
+                            hx-encoding="multipart/form-data"
                         >
                     </div>
 
                     <!-- Company Input -->
                     <div class="mb-6">
                         <label class="label" for="company_input">
-                            <span class="label-text font-semibold text-gray-800">Company Name or URL</span>
+                            <span class="label-text font-semibold text-gray-800">Company Name or Website URL</span>
+                            <span class="label-text-alt text-gray-500">(e.g. Google or https://google.com)</span>
                         </label>
                         <div class="flex gap-2">
                             <input 
@@ -77,19 +89,22 @@
                                 id="company_input" 
                                 name="company_input" 
                                 class="input input-bordered flex-1 bg-white text-gray-800 placeholder-gray-500" 
-                                placeholder="e.g., Google or https://google.com" 
-                                required 
+                                placeholder="Enter company name or paste their careers page URL"
+                                pattern="^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$|^[a-zA-Z\s]+$"
+                                required
                             >
                             <button 
                                 type="button"
                                 class="btn btn-primary"
-                                hx-get="http://localhost:8000/fetch_company"
+                                hx-post="/analyze_company" 
                                 hx-include="#company_input"
-                                hx-target="#company_input"
+                                hx-target="#company_info"
+                                hx-swap="innerHTML"
                             >
-                                🔍 
+                                🔍 Analyze
                             </button>
                         </div>
+                        <div id="company_info" class="mt-2 text-sm text-gray-600"></div>
                     </div>
 
                     <!-- Generate Button -->
@@ -113,7 +128,7 @@
         <!-- Footer -->
         <footer class="footer footer-center p-4 text-base-content mt-8">
             <div class="flex items-center gap-2">
-                <p>© 2024 Cover Letter Generator</p>
+                <p>© 2025 0xrsydn</p>
                 <a href="https://github.com/" class="text-gray-600 hover:text-gray-800 transition-colors">
                     <i class="fab fa-github" style="font-size: 24px;"></i>
                 </a>

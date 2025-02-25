@@ -12,6 +12,41 @@
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css">
+    <script>
+        // Show loading indicator when document upload starts
+        document.body.addEventListener('htmx:beforeRequest', function(evt) {
+            if (evt.detail.requestConfig.url === 'http://localhost:8000/parse_document') {
+                document.getElementById('upload_indicator').classList.remove('hidden');
+            }
+        });
+        
+        // Handle the document parsing response
+        document.body.addEventListener('htmx:afterRequest', function(evt) {
+            if (evt.detail.requestConfig.url === 'http://localhost:8000/parse_document') {
+                document.getElementById('upload_indicator').classList.add('hidden');
+                
+                // Handle the plain text response
+                if (evt.detail.xhr.status === 200) {
+                    try {
+                        const extractedText = evt.detail.xhr.responseText;
+                        if (extractedText) {
+                            const textareaElement = document.createElement('textarea');
+                            textareaElement.id = 'cv_parsed_text';
+                            textareaElement.name = 'cv_parsed_text';
+                            textareaElement.hidden = true;
+                            textareaElement.value = extractedText;
+                            
+                            // Replace the existing textarea with the new one
+                            const oldTextarea = document.getElementById('cv_parsed_text');
+                            oldTextarea.parentNode.replaceChild(textareaElement, oldTextarea);
+                        }
+                    } catch (e) {
+                        console.error('Error processing document response:', e);
+                    }
+                }
+            }
+        });
+    </script>
 </head>
 <body class="bg-gray-100">
     <div class="min-h-screen flex flex-col">
@@ -37,10 +72,13 @@
                             hx-post="http://localhost:8000/parse_document"
                             hx-trigger="change"
                             hx-target="#cv_parsed_text"
-                            hx-swap="innerHTML"
+                            hx-swap="outerHTML"
                             hx-encoding="multipart/form-data"
                         >
                         <textarea id="cv_parsed_text" name="cv_parsed_text" hidden></textarea>
+                        <div id="upload_indicator" class="mt-2 text-sm text-gray-600 hidden">
+                            <span class="loading loading-spinner loading-xs"></span> Processing your document...
+                        </div>
                     </div>
 
                     <!-- Job Description (Text) -->
@@ -96,7 +134,7 @@
                             <button 
                                 type="button"
                                 class="btn btn-primary"
-                                hx-post="/analyze_company" 
+                                hx-post="http://localhost:8000/analyze_company" 
                                 hx-include="#company_input"
                                 hx-target="#company_info"
                                 hx-swap="innerHTML"

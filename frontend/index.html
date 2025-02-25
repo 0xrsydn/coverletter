@@ -13,39 +13,60 @@
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css">
     <script>
-        // Show loading indicator when document upload starts
         document.body.addEventListener('htmx:beforeRequest', function(evt) {
-            if (evt.detail.requestConfig.url === 'http://localhost:8000/parse_document') {
-                document.getElementById('upload_indicator').classList.remove('hidden');
+            // Show loading for cover letter generation
+            if (evt.detail.requestConfig.url === 'http://localhost:8000/generate_cover_letter') {
+                document.getElementById('cover_letter_loading').classList.remove('hidden');
             }
         });
         
-        // Handle the document parsing response
         document.body.addEventListener('htmx:afterRequest', function(evt) {
-            if (evt.detail.requestConfig.url === 'http://localhost:8000/parse_document') {
-                document.getElementById('upload_indicator').classList.add('hidden');
-                
-                // Handle the plain text response
-                if (evt.detail.xhr.status === 200) {
-                    try {
-                        const extractedText = evt.detail.xhr.responseText;
-                        if (extractedText) {
-                            const textareaElement = document.createElement('textarea');
-                            textareaElement.id = 'cv_parsed_text';
-                            textareaElement.name = 'cv_parsed_text';
-                            textareaElement.hidden = true;
-                            textareaElement.value = extractedText;
-                            
-                            // Replace the existing textarea with the new one
-                            const oldTextarea = document.getElementById('cv_parsed_text');
-                            oldTextarea.parentNode.replaceChild(textareaElement, oldTextarea);
-                        }
-                    } catch (e) {
-                        console.error('Error processing document response:', e);
-                    }
-                }
+            // Handle cover letter generation finished
+            if (evt.detail.requestConfig.url === 'http://localhost:8000/generate_cover_letter') {
+                document.getElementById('cover_letter_loading').classList.add('hidden');
             }
         });
+
+        // Toggle between text and image job description inputs
+        function toggleJobDescriptionType(type) {
+            const textInput = document.getElementById('job_desc_text_container');
+            const imageInput = document.getElementById('job_desc_image_container');
+            
+            if (type === 'text') {
+                textInput.classList.remove('hidden');
+                imageInput.classList.add('hidden');
+                document.getElementById('job_desc_image').value = ''; // Clear image input
+            } else {
+                textInput.classList.add('hidden');
+                imageInput.classList.remove('hidden');
+                document.getElementById('job_desc_text').value = ''; // Clear text input
+            }
+        }
+        
+        // Clean and format cover letter text
+        function formatCoverLetterText(text) {
+            // Replace literal \n with actual newlines
+            let formattedText = text.replace(/\\n/g, '\n');
+            
+            // Handle other escaped characters
+            formattedText = formattedText
+                .replace(/\\"/g, '"')
+                .replace(/\\'/g, "'")
+                .replace(/\\t/g, '\t');
+            
+            // Remove any double newlines that might exist
+            formattedText = formattedText.replace(/\n\s*\n\s*\n/g, '\n\n');
+            
+            // Ensure proper paragraph spacing
+            formattedText = formattedText.replace(/\n\n\n+/g, '\n\n');
+            
+            // Clean up any JSON artifacts if present
+            if (formattedText.startsWith('"') && formattedText.endsWith('"')) {
+                formattedText = formattedText.substring(1, formattedText.length - 1);
+            }
+            
+            return formattedText;
+        }
     </script>
 </head>
 <body class="bg-gray-100">
@@ -56,98 +77,106 @@
 
             <!-- Input Form -->
             <div class="card bg-white shadow-lg p-6 mb-8">
-                <form hx-post="http://localhost:8000/generate_cover_letter" hx-target="#cover_letter_editor" hx-swap="innerHTML">
+                <h3 class="text-lg font-semibold mb-4">Complete the Form Below</h3>
+                
+                <!-- Main Form for Cover Letter Generation -->
+                <form id="cover_letter_form" enctype="multipart/form-data" class="space-y-4">
                     <!-- CV Upload -->
-                    <div class="mb-4">
-                        <label class="label" for="cv_file">
-                            <span class="label-text font-semibold text-gray-800">Upload CV (PDF or DOCX)</span>
-                        </label>
-                        <input 
-                            type="file" 
-                            id="cv_file" 
-                            name="cv_file" 
-                            accept=".pdf,.docx" 
-                            class="file-input file-input-bordered file-input-primary w-full bg-white text-gray-800" 
-                            required 
-                            hx-post="http://localhost:8000/parse_document"
-                            hx-trigger="change"
-                            hx-target="#cv_parsed_text"
-                            hx-swap="outerHTML"
-                            hx-encoding="multipart/form-data"
-                        >
-                        <textarea id="cv_parsed_text" name="cv_parsed_text" hidden></textarea>
-                        <div id="upload_indicator" class="mt-2 text-sm text-gray-600 hidden">
-                            <span class="loading loading-spinner loading-xs"></span> Processing your document...
+                    <div class="mb-6 border-b pb-4">
+                        <h3 class="text-lg font-semibold mb-2">Step 1: Upload your Resume/CV</h3>
+                        <div class="mb-4">
+                            <label class="label" for="cv_file">
+                                <span class="label-text font-semibold text-gray-800">Upload CV (PDF or DOCX)*</span>
+                            </label>
+                            <input 
+                                type="file" 
+                                id="cv_file" 
+                                name="cv_file" 
+                                accept=".pdf,.docx" 
+                                class="file-input file-input-bordered file-input-primary w-full bg-white text-gray-800" 
+                                required
+                            >
                         </div>
                     </div>
+                    
+                    <!-- Job Description Section -->
+                    <div class="mb-6 border-b pb-4">
+                        <h3 class="text-lg font-semibold mb-2">Step 2: Provide Job Description</h3>
+                        
+                        <!-- Job Description Type Toggle -->
+                        <div class="flex mb-4 bg-gray-100 rounded-lg p-2">
+                            <div class="flex-1">
+                                <label class="cursor-pointer label justify-start">
+                                    <input type="radio" name="job_desc_type" class="radio radio-primary" value="text" checked onchange="toggleJobDescriptionType('text')">
+                                    <span class="label-text ml-2">Text Description</span>
+                                </label>
+                            </div>
+                            <div class="flex-1">
+                                <label class="cursor-pointer label justify-start">
+                                    <input type="radio" name="job_desc_type" class="radio radio-primary" value="image" onchange="toggleJobDescriptionType('image')">
+                                    <span class="label-text ml-2">Image/Screenshot</span>
+                                </label>
+                            </div>
+                        </div>
 
-                    <!-- Job Description (Text) -->
-                    <div class="mb-4">
-                        <label class="label" for="job_desc_text">
-                            <span class="label-text font-semibold text-gray-800">Job Description (Text)</span>
-                        </label>
-                        <textarea 
-                            id="job_desc_text" 
-                            name="job_desc_text" 
-                            class="textarea textarea-bordered w-full bg-white text-gray-800 placeholder-gray-500" 
-                            placeholder="Paste the job description here..."
-                            rows="4"
-                        ></textarea>
-                    </div>
+                        <!-- Job Description (Text) -->
+                        <div id="job_desc_text_container">
+                            <label class="label" for="job_desc_text">
+                                <span class="label-text font-semibold text-gray-800">Job Description Text*</span>
+                            </label>
+                            <textarea 
+                                id="job_desc_text" 
+                                name="job_desc_text" 
+                                class="textarea textarea-bordered w-full bg-white text-gray-800 placeholder-gray-500" 
+                                placeholder="Paste the job description here..."
+                                rows="4"
+                            ></textarea>
+                        </div>
 
-                    <!-- Job Description (Image) -->
-                    <div class="mb-4">
-                        <label class="label" for="job_desc_image">
-                            <span class="label-text font-semibold text-gray-800">Job Description (Image)</span>
-                            <span class="label-text-alt text-gray-500">Or upload an image instead</span>
-                        </label>
-                        <input 
-                            type="file" 
-                            id="job_desc_image" 
-                            name="job_desc_image" 
-                            accept="image/*" 
-                            class="file-input file-input-bordered file-input-primary w-full bg-white text-gray-800" 
-                            hx-post="http://localhost:8000/analyze_job_desc_image"
-                            hx-trigger="change"
-                            hx-target="#job_desc_text"
-                            hx-swap="innerHTML"
-                            hx-encoding="multipart/form-data"
-                        >
+                        <!-- Job Description (Image) -->
+                        <div id="job_desc_image_container" class="hidden">
+                            <label class="label" for="job_desc_image">
+                                <span class="label-text font-semibold text-gray-800">Job Description Image*</span>
+                            </label>
+                            <input 
+                                type="file" 
+                                id="job_desc_image" 
+                                name="job_desc_image" 
+                                accept="image/*" 
+                                class="file-input file-input-bordered file-input-primary w-full bg-white text-gray-800"
+                            >
+                            <div class="text-sm text-gray-500 mt-1">
+                                Upload a screenshot of the job posting (JPEG, PNG, etc.)
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Company Input -->
-                    <div class="mb-6">
+                    <div class="mb-6 border-b pb-4">
+                        <h3 class="text-lg font-semibold mb-2">Step 3: Company Information</h3>
                         <label class="label" for="company_name">
-                            <span class="label-text font-semibold text-gray-800">Company Name or Website URL</span>
-                            <span class="label-text-alt text-gray-500">(e.g. Google or https://google.com)</span>
+                            <span class="label-text font-semibold text-gray-800">Company Name</span>
+                            <span class="label-text-alt text-gray-500">(Optional but recommended)</span>
                         </label>
-                        <!-- Company Information Section (changed from form to div) -->
-                        <div id="company-section" class="flex gap-2">
-                            <input 
-                                type="text" 
-                                id="company_name" 
-                                name="company_name" 
-                                class="input input-bordered flex-1 bg-white text-gray-800 placeholder-gray-500" 
-                                placeholder="Enter company name or paste their careers page URL"
-                                required
-                            >
-                            <button 
-                                hx-post="http://localhost:8000/analyze_company"
-                                hx-target="#company_info"
-                                hx-swap="innerHTML"
-                                hx-trigger="click"
-                                hx-include="#company_name"
-                                type="button"
-                                class="btn btn-primary"
-                            >
-                                🔍 Analyze
-                            </button>
-                        </div>
-                        <div id="company_info" class="mt-2 text-sm text-gray-600"></div>
+                        <input 
+                            type="text" 
+                            id="company_name" 
+                            name="company_name" 
+                            class="input input-bordered w-full bg-white text-gray-800 placeholder-gray-500" 
+                            placeholder="Enter company name (e.g., Google, Microsoft)"
+                        >
                     </div>
 
                     <!-- Generate Button -->
-                    <button type="submit" class="btn btn-primary w-full">Generate Cover Letter</button>
+                    <div class="pt-4">
+                        <h3 class="text-lg font-semibold mb-2">Step 4: Generate Your Cover Letter</h3>
+                        <button type="button" id="generate_btn" class="btn btn-primary w-full">Generate Cover Letter</button>
+                        <div id="cover_letter_loading" class="mt-2 text-center text-gray-600 hidden">
+                            <span class="loading loading-spinner loading-md"></span> 
+                            <p>Generating your personalized cover letter...</p>
+                            <p class="text-xs mt-1">This may take 15-30 seconds.</p>
+                        </div>
+                    </div>
                 </form>
             </div>
 
@@ -174,5 +203,79 @@
             </div>
         </footer>
     </div>
+    
+    <!-- Form submission script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle the generate button click
+            document.getElementById('generate_btn').addEventListener('click', function() {
+                // Show loading indicator
+                document.getElementById('cover_letter_loading').classList.remove('hidden');
+                
+                // Create form data from the form
+                const formData = new FormData();
+                
+                // Get CV file
+                const cvFile = document.getElementById('cv_file').files[0];
+                if (!cvFile) {
+                    alert('Please upload your CV/resume file');
+                    document.getElementById('cover_letter_loading').classList.add('hidden');
+                    return;
+                }
+                formData.append('cv_file', cvFile);
+                
+                // Get job description based on selected type
+                const jobDescType = document.querySelector('input[name="job_desc_type"]:checked').value;
+                if (jobDescType === 'text') {
+                    const jobDescText = document.getElementById('job_desc_text').value.trim();
+                    if (!jobDescText) {
+                        alert('Please enter the job description text');
+                        document.getElementById('cover_letter_loading').classList.add('hidden');
+                        return;
+                    }
+                    formData.append('job_desc_text', jobDescText);
+                } else { // image
+                    const jobDescImage = document.getElementById('job_desc_image').files[0];
+                    if (!jobDescImage) {
+                        alert('Please upload a job description image');
+                        document.getElementById('cover_letter_loading').classList.add('hidden');
+                        return;
+                    }
+                    formData.append('job_desc_image', jobDescImage);
+                }
+                
+                // Get company name (optional)
+                const companyName = document.getElementById('company_name').value.trim();
+                if (companyName) {
+                    formData.append('company_name', companyName);
+                }
+                
+                // Use fetch API to send the request
+                fetch('http://localhost:8000/generate_cover_letter', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            throw new Error(`Error ${response.status}: ${text}`);
+                        });
+                    }
+                    return response.text();
+                })
+                .then(result => {
+                    // We don't need to format the text anymore as it comes pre-formatted from the server
+                    document.getElementById('cover_letter_editor').value = result;
+                    // Hide loading indicator
+                    document.getElementById('cover_letter_loading').classList.add('hidden');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error generating cover letter: ' + error.message);
+                    document.getElementById('cover_letter_loading').classList.add('hidden');
+                });
+            });
+        });
+    </script>
 </body>
 </html>

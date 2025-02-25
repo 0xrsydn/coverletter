@@ -3,10 +3,7 @@ import docx
 import logging
 import os
 import tempfile
-from fastapi import UploadFile, File, HTTPException
-from fastapi.responses import PlainTextResponse
-
-from . import router
+from fastapi import UploadFile
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -37,19 +34,22 @@ def extract_text_from_docx(file_path):
         logger.error(f"Error extracting text from DOCX: {str(e)}")
         raise e
 
-# API Routes
-@router.post("/parse_document", response_class=PlainTextResponse)
-async def parse_document(cv_file: UploadFile = File(...)):
+async def extract_docs(cv_file: UploadFile) -> str:
     """
-    Parse an uploaded CV document (PDF or DOCX) and extract its text content.
-    Returns plain text directly.
+    Extract text from a CV document (PDF or DOCX).
+    
+    Args:
+        cv_file: The uploaded CV file
+        
+    Returns:
+        The extracted text from the document
     """
     # Validate file extension
     filename = cv_file.filename.lower()
     logger.info(f"Processing file: {filename}")
     
     if not (filename.endswith('.pdf') or filename.endswith('.docx')):
-        raise HTTPException(status_code=400, detail="Only PDF and DOCX files are supported")
+        raise ValueError("Only PDF and DOCX files are supported")
     
     # Create a temporary file to store the uploaded content
     with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as temp_file:
@@ -66,19 +66,18 @@ async def parse_document(cv_file: UploadFile = File(...)):
             text = extract_text_from_docx(temp_path)
         else:
             # This should never happen due to the earlier check
-            raise HTTPException(status_code=400, detail="Unsupported file format")
+            raise ValueError("Unsupported file format")
         
         # Cleanup text - remove excessive whitespace
         text = " ".join(text.split())
         
         logger.info(f"Successfully extracted {len(text)} characters from {filename}")
         
-        # Return the extracted text as plain text
         return text
     
     except Exception as e:
         logger.error(f"Error processing document: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error parsing document: {str(e)}")
+        raise ValueError(f"Error parsing document: {str(e)}")
     
     finally:
         # Clean up the temporary file

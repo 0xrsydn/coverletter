@@ -1,4 +1,4 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, Form
 import logging
 from typing import Dict, Any, Union
 
@@ -74,13 +74,13 @@ async def analyze_company_info(company_name: str) -> Union[str, Dict[str, Any]]:
 
 # API Routes
 @router.post("/analyze_company", response_model=str)
-async def analyze_company_route(company_name: str):
+async def analyze_company_route(company_name: str = Form(...)):
     """
     Analyze a company based on name input.
     Returns a plain text description of the company.
     
     Args:
-        company_name: Name of the company to analyze
+        company_name: Name of the company to analyze (from form data)
     """
     try:
         if not company_name or not company_name.strip():

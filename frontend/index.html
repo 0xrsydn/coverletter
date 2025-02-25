@@ -117,26 +117,28 @@
 
                     <!-- Company Input -->
                     <div class="mb-6">
-                        <label class="label" for="company_input">
+                        <label class="label" for="company_name">
                             <span class="label-text font-semibold text-gray-800">Company Name or Website URL</span>
                             <span class="label-text-alt text-gray-500">(e.g. Google or https://google.com)</span>
                         </label>
-                        <div class="flex gap-2">
+                        <!-- Company Information Section (changed from form to div) -->
+                        <div id="company-section" class="flex gap-2">
                             <input 
                                 type="text" 
-                                id="company_input" 
-                                name="company_input" 
+                                id="company_name" 
+                                name="company_name" 
                                 class="input input-bordered flex-1 bg-white text-gray-800 placeholder-gray-500" 
                                 placeholder="Enter company name or paste their careers page URL"
                                 required
                             >
                             <button 
-                                type="button"
-                                class="btn btn-primary"
-                                hx-post="http://localhost:8000/analyze_company" 
-                                hx-include="#company_input"
+                                hx-post="http://localhost:8000/analyze_company"
                                 hx-target="#company_info"
                                 hx-swap="innerHTML"
+                                hx-trigger="click"
+                                hx-include="#company_name"
+                                type="button"
+                                class="btn btn-primary"
                             >
                                 🔍 Analyze
                             </button>

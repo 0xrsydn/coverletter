@@ -1,7 +1,10 @@
 import requests
 import base64
 import logging
+from fastapi import UploadFile, File, HTTPException
+
 from config import load_config
+from . import router
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -63,4 +66,28 @@ async def analyze_job_description_image(image_bytes, content_type):
     # Extract and return the analysis
     analysis = response_data.get("choices", [{}])[0].get("message", {}).get("content", "")
     
-    return analysis 
+    return analysis
+
+# API Routes
+@router.post("/analyze_job_desc_image")
+async def analyze_job_desc_image_route(job_desc_image: UploadFile = File(...)):
+    """
+    Analyze job description image using AI model.
+    """
+    # Validate file is an image
+    if not job_desc_image.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Uploaded file is not an image")
+    
+    try:
+        # Read the image file
+        image_bytes = await job_desc_image.read()
+        
+        # Use the service to analyze the job description
+        result = await analyze_job_description_image(image_bytes, job_desc_image.content_type)
+        logger.info(f"Successfully analyzed job description image. Response length: {len(result)}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error analyzing job description image: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error analyzing job description: {str(e)}") 

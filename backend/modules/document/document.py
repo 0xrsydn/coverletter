@@ -1,16 +1,43 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from fastapi.responses import PlainTextResponse
+import fitz  # PyMuPDF
+import docx
+import logging
 import os
 import tempfile
-import logging
-from services.document_service import extract_text_from_pdf, extract_text_from_docx
+from fastapi import UploadFile, File, HTTPException
+from fastapi.responses import PlainTextResponse
+
+from . import router
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
-# Create router
-router = APIRouter()
+# Document processing service functions
+def extract_text_from_pdf(file_path):
+    """Extract text from a PDF file using PyMuPDF"""
+    try:
+        doc = fitz.open(file_path)
+        text = ""
+        for page in doc:
+            text += page.get_text()
+        doc.close()
+        return text
+    except Exception as e:
+        logger.error(f"Error extracting text from PDF: {str(e)}")
+        raise e
 
+def extract_text_from_docx(file_path):
+    """Extract text from a DOCX file using python-docx"""
+    try:
+        doc = docx.Document(file_path)
+        text = ""
+        for para in doc.paragraphs:
+            text += para.text + "\n"
+        return text
+    except Exception as e:
+        logger.error(f"Error extracting text from DOCX: {str(e)}")
+        raise e
+
+# API Routes
 @router.post("/parse_document", response_class=PlainTextResponse)
 async def parse_document(cv_file: UploadFile = File(...)):
     """

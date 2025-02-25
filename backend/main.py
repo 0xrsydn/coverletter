@@ -6,7 +6,9 @@ from dotenv import load_dotenv
 
 # Internal imports
 from config import load_config
-from api.routes import document_routes, job_routes, company_routes 
+from modules.document import router as document_router
+from modules.job import router as job_router
+from modules.company import router as company_router
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -33,10 +35,9 @@ async def root():
     return {"message": "Welcome to the FastAPI"}
 
 # Include routers with their original paths
-# No prefix is used since we've updated the route paths to match original endpoints
-app.include_router(document_routes.router, tags=["Document Processing"])
-app.include_router(job_routes.router, tags=["Job Analysis"])
-app.include_router(company_routes.router, tags=["Company Analysis"])
+app.include_router(document_router, tags=["Document Processing"])
+app.include_router(job_router, tags=["Job Analysis"])
+app.include_router(company_router, tags=["Company Analysis"])
 
 if __name__ == "__main__":
     import uvicorn

@@ -3,49 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Generate personalized cover letters based on your resume and job descriptions">
     <title>Cover Letter Generator</title>
     <!-- Local CSS built with PostCSS -->
     <link href="dist/css/styles.css" rel="stylesheet" type="text/css" />
-    <!-- HTMX for dynamic interactions -->
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css">
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            document.body.addEventListener('htmx:beforeRequest', function(evt) {
-                // Show loading for cover letter generation
-                if (evt.detail.requestConfig.url === 'http://localhost:8000/generate_cover_letter') {
-                    document.getElementById('cover_letter_loading').classList.remove('hidden');
-                    document.getElementById('generate_btn').classList.add('loading');
-                    document.getElementById('generate_btn').disabled = true;
-                }
-            });
-            
-            document.body.addEventListener('htmx:afterRequest', function(evt) {
-                // Handle cover letter generation finished
-                if (evt.detail.requestConfig.url === 'http://localhost:8000/generate_cover_letter') {
-                    document.getElementById('cover_letter_loading').classList.add('hidden');
-                    document.getElementById('generate_btn').classList.remove('loading');
-                    document.getElementById('generate_btn').disabled = false;
-                }
-            });
-        });
-
-        // Toggle between text and image job description inputs
-        function toggleJobDescriptionType(type) {
-            const textInput = document.getElementById('job_desc_text_container');
-            const imageInput = document.getElementById('job_desc_image_container');
-            
-            if (type === 'text') {
-                textInput.classList.remove('hidden');
-                imageInput.classList.add('hidden');
-                document.getElementById('job_desc_image').value = ''; // Clear image input
-            } else {
-                textInput.classList.add('hidden');
-                imageInput.classList.remove('hidden');
-                document.getElementById('job_desc_text').value = ''; // Clear text input
-            }
-        }
+    <!-- Local Font Awesome -->
+    <link href="dist/css/all.min.css" rel="stylesheet" type="text/css" />
+    <!-- Local HTMX -->
+    <script src="dist/js/htmx.min.js"></script>
+    <!-- Load our modules -->
+    <script type="module">
+        import config from './src/config.js';
+        import { sanitizeInput, sanitizeHtml, showError, validateForm } from './src/utils.js';
+        
+        // Make config and utils available globally
+        window.appConfig = config;
+        window.appUtils = { sanitizeInput, sanitizeHtml, showError, validateForm };
     </script>
 </head>
 <body class="bg-gray-100">
@@ -54,12 +27,30 @@
             <!-- Heading -->
             <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">Cover Letter Generator</h1>
 
+            <!-- Error alert container (hidden by default) -->
+            <div id="error_container" class="alert alert-error mb-4 hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Error message will appear here</span>
+            </div>
+
             <!-- Input Form -->
             <div class="card bg-white shadow-lg p-6 mb-8">
                 <h3 class="text-lg font-semibold mb-4">Complete the Form Below</h3>
                 
                 <!-- Main Form for Cover Letter Generation -->
-                <form id="cover_letter_form" enctype="multipart/form-data" class="space-y-4">
+                <form id="cover_letter_form" 
+                      hx-encoding="multipart/form-data" 
+                      hx-post="" 
+                      hx-target="#cover_letter_editor" 
+                      hx-trigger="submit"
+                      hx-indicator="#cover_letter_loading"
+                      class="space-y-4">
+                    
+                    <!-- Hidden input for API URL (filled by JavaScript) -->
+                    <input type="hidden" id="api_endpoint" name="api_endpoint" value="">
+                    
                     <!-- CV Upload -->
                     <div class="mb-6 border-b pb-4">
                         <h3 class="text-lg font-semibold mb-2">Step 1: Upload your Resume/CV</h3>
@@ -86,13 +77,13 @@
                         <div class="flex mb-4 bg-gray-100 rounded-lg p-2">
                             <div class="flex-1">
                                 <label class="cursor-pointer label justify-start">
-                                    <input type="radio" name="job_desc_type" class="radio radio-primary" value="text" checked onchange="toggleJobDescriptionType('text')">
+                                    <input type="radio" name="job_desc_type" class="radio radio-primary" value="text" checked>
                                     <span class="label-text ml-2">Text Description</span>
                                 </label>
                             </div>
                             <div class="flex-1">
                                 <label class="cursor-pointer label justify-start">
-                                    <input type="radio" name="job_desc_type" class="radio radio-primary" value="image" onchange="toggleJobDescriptionType('image')">
+                                    <input type="radio" name="job_desc_type" class="radio radio-primary" value="image">
                                     <span class="label-text ml-2">Image/Screenshot</span>
                                 </label>
                             </div>
@@ -149,7 +140,7 @@
                     <!-- Generate Button -->
                     <div class="pt-4">
                         <h3 class="text-lg font-semibold mb-2">Step 4: Generate Your Cover Letter</h3>
-                        <button type="button" id="generate_btn" class="btn btn-primary w-full">GENERATE COVER LETTER</button>
+                        <button type="submit" id="generate_btn" class="btn btn-primary w-full">GENERATE COVER LETTER</button>
                         <div id="cover_letter_loading" class="mt-4 text-center hidden">
                             <div class="flex flex-col items-center p-4 bg-primary bg-opacity-10 rounded-lg border border-primary border-opacity-20">
                                 <span class="loading loading-spinner loading-lg text-primary"></span>
@@ -193,91 +184,95 @@
         </footer>
     </div>
     
-    <!-- Form submission script -->
+    <!-- Main application script -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Handle the generate button click
-            document.getElementById('generate_btn').addEventListener('click', function() {
-                // Show loading indicator
-                document.getElementById('cover_letter_loading').classList.remove('hidden');
-                // Add loading state to button
-                this.classList.add('loading');
-                this.disabled = true;
+            // Set the API endpoint based on the environment config
+            const apiEndpoint = window.appConfig.apiBaseUrl + '/generate_cover_letter';
+            document.getElementById('cover_letter_form').setAttribute('hx-post', apiEndpoint);
+            
+            // Toggle between text and image job description inputs
+            const jobDescRadios = document.querySelectorAll('input[name="job_desc_type"]');
+            jobDescRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const textInput = document.getElementById('job_desc_text_container');
+                    const imageInput = document.getElementById('job_desc_image_container');
+                    
+                    if (this.value === 'text') {
+                        textInput.classList.remove('hidden');
+                        imageInput.classList.add('hidden');
+                        document.getElementById('job_desc_image').value = ''; // Clear image input
+                    } else {
+                        textInput.classList.add('hidden');
+                        imageInput.classList.remove('hidden');
+                        document.getElementById('job_desc_text').value = ''; // Clear text input
+                    }
+                });
+            });
+            
+            // Handle validation before form submission
+            document.getElementById('cover_letter_form').addEventListener('htmx:beforeRequest', function(event) {
+                // Create FormData from the form
+                const formData = new FormData(this);
                 
-                // Create form data from the form
-                const formData = new FormData();
-                
-                // Get CV file
-                const cvFile = document.getElementById('cv_file').files[0];
-                if (!cvFile) {
-                    alert('Please upload your CV/resume file');
-                    document.getElementById('cover_letter_loading').classList.add('hidden');
+                // Validate the form
+                const validation = window.appUtils.validateForm(formData);
+                if (!validation.isValid) {
+                    // Show error and prevent submission
+                    window.appUtils.showError(validation.errorMessage);
+                    event.preventDefault();
                     return;
                 }
-                formData.append('cv_file', cvFile);
                 
-                // Get job description based on selected type
-                const jobDescType = document.querySelector('input[name="job_desc_type"]:checked').value;
-                if (jobDescType === 'text') {
-                    const jobDescText = document.getElementById('job_desc_text').value.trim();
-                    if (!jobDescText) {
-                        alert('Please enter the job description text');
-                        document.getElementById('cover_letter_loading').classList.add('hidden');
-                        return;
-                    }
-                    formData.append('job_desc_text', jobDescText);
-                } else { // image
-                    const jobDescImage = document.getElementById('job_desc_image').files[0];
-                    if (!jobDescImage) {
-                        alert('Please upload a job description image');
-                        document.getElementById('cover_letter_loading').classList.add('hidden');
-                        return;
-                    }
-                    formData.append('job_desc_image', jobDescImage);
-                }
-                
-                // Get company name (optional)
-                const companyName = document.getElementById('company_name').value.trim();
+                // Sanitize text inputs
+                const companyName = document.getElementById('company_name').value;
                 if (companyName) {
-                    formData.append('company_name', companyName);
+                    document.getElementById('company_name').value = window.appUtils.sanitizeInput(companyName);
                 }
                 
-                // Use fetch API to send the request
-                fetch('http://localhost:8000/generate_cover_letter', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.text().then(text => {
-                            throw new Error(`Error ${response.status}: ${text}`);
-                        });
+                const jobDescText = document.getElementById('job_desc_text').value;
+                if (jobDescText) {
+                    document.getElementById('job_desc_text').value = window.appUtils.sanitizeInput(jobDescText);
+                }
+            });
+            
+            // Handle server errors
+            document.body.addEventListener('htmx:responseError', function(event) {
+                let errorMsg = 'An error occurred while generating your cover letter.';
+                
+                // Try to extract error message from response
+                try {
+                    const response = event.detail.xhr.response;
+                    if (response) {
+                        // Try to parse as JSON first
+                        try {
+                            const jsonResponse = JSON.parse(response);
+                            if (jsonResponse.error) {
+                                errorMsg = jsonResponse.error;
+                            }
+                        } catch (e) {
+                            // Not JSON, use as text if not too long
+                            if (response.length < 100) {
+                                errorMsg = response;
+                            }
+                        }
                     }
-                    return response.text();
-                })
-                .then(result => {
-                    // We don't need to format the text anymore as it comes pre-formatted from the server
-                    document.getElementById('cover_letter_editor').value = result;
-                    // Hide loading indicator
-                    document.getElementById('cover_letter_loading').classList.add('hidden');
-                    // Reset button state
-                    document.getElementById('generate_btn').classList.remove('loading');
-                    document.getElementById('generate_btn').disabled = false;
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error generating cover letter: ' + error.message);
-                    document.getElementById('cover_letter_loading').classList.add('hidden');
-                    document.getElementById('generate_btn').classList.remove('loading');
-                    document.getElementById('generate_btn').disabled = false;
-                });
+                } catch (e) {
+                    console.error('Error parsing error response:', e);
+                }
+                
+                window.appUtils.showError(errorMsg);
+            });
+            
+            // Handle network errors
+            document.body.addEventListener('htmx:sendError', function(event) {
+                window.appUtils.showError('Network error. Please check your internet connection and try again.');
             });
             
             // Handle copy button click
             document.getElementById('copy_btn').addEventListener('click', function() {
                 const copyText = document.getElementById('cover_letter_editor');
                 copyText.select();
-                copyText.setSelectionRange(0, 99999); // For mobile devices
                 
                 // Copy the text to clipboard
                 navigator.clipboard.writeText(copyText.value)
@@ -298,7 +293,7 @@
                     })
                     .catch(err => {
                         console.error('Could not copy text: ', err);
-                        alert('Failed to copy to clipboard');
+                        window.appUtils.showError('Failed to copy to clipboard');
                     });
             });
         });

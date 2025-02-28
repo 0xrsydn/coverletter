@@ -1,9 +1,12 @@
 import requests
 import logging
 import re
-from typing import Optional
+import time
+from typing import Optional, Dict, Any
 
 from config import load_config
+from modules.errors.exceptions import APIRequestError, ConfigurationError
+from modules.monitoring.prometheus import API_ERRORS
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -33,6 +36,82 @@ def format_cover_letter(text: str) -> str:
     
     return formatted_text
 
+async def call_openrouter_api(payload: Dict[str, Any], api_key: str, api_url: str, max_retries: int = 3) -> Dict[str, Any]:
+    """
+    Makes an API call to OpenRouter with retry logic.
+    
+    Args:
+        payload: The request payload
+        api_key: OpenRouter API key
+        api_url: OpenRouter API URL
+        max_retries: Maximum number of retry attempts
+        
+    Returns:
+        The parsed JSON response
+        
+    Raises:
+        APIRequestError: If the API call fails after all retries
+    """
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    # Retry configuration
+    retry_delays = [1, 3, 5]  # Delays in seconds between retries
+    last_exception = None
+    
+    # Try the request with retries
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(api_url, json=payload, headers=headers, timeout=30)
+            response_data = response.json()
+            
+            # Check for API errors
+            if response.status_code != 200:
+                error_message = response_data.get('error', {}).get('message', 'Unknown error')
+                logger.warning(f"OpenRouter API error (attempt {attempt+1}/{max_retries}): {error_message}")
+                
+                # Record the API error in metrics
+                API_ERRORS.labels(api_name="openrouter").inc()
+                
+                # If we've exhausted our retries, raise an exception
+                if attempt == max_retries - 1:
+                    raise APIRequestError(
+                        message=error_message,
+                        service_name="OpenRouter",
+                        status_code=response.status_code,
+                        details={"status_code": response.status_code, "response": response_data}
+                    )
+                
+                # Otherwise, wait and retry
+                time.sleep(retry_delays[min(attempt, len(retry_delays)-1)])
+                continue
+            
+            # Success - return the data
+            return response_data
+            
+        except requests.RequestException as e:
+            last_exception = e
+            logger.warning(f"Request error to OpenRouter API (attempt {attempt+1}/{max_retries}): {str(e)}")
+            
+            # Record the API error in metrics
+            API_ERRORS.labels(api_name="openrouter").inc()
+            
+            # If we've exhausted our retries, raise an exception
+            if attempt == max_retries - 1:
+                break
+                
+            # Otherwise, wait and retry
+            time.sleep(retry_delays[min(attempt, len(retry_delays)-1)])
+    
+    # If we get here, all retries failed
+    raise APIRequestError(
+        message=f"Failed after {max_retries} attempts: {str(last_exception)}",
+        service_name="OpenRouter",
+        details={"last_error": str(last_exception)}
+    )
+
 async def generate_cover_letter(resume_text: str, job_description: str, company_info: str) -> str:
     """
     Generate a personalized cover letter using OpenRouter API with CV, job description, and company info.
@@ -50,13 +129,10 @@ async def generate_cover_letter(resume_text: str, job_description: str, company_
     openrouter_config = config["openrouter"]
     
     if not openrouter_config["api_key"]:
-        raise ValueError("OpenRouter API key not configured")
-    
-    # Prepare the request to OpenRouter API
-    headers = {
-        "Authorization": f"Bearer {openrouter_config['api_key']}",
-        "Content-Type": "application/json"
-    }
+        raise ConfigurationError(
+            message="API key is missing or empty",
+            config_item="OPENROUTER_API_KEY"
+        )
     
     # Create a prompt for the cover letter generation
     system_prompt = """You are an expert cover letter writer with experience in HR and recruitment. 
@@ -107,19 +183,24 @@ that match the job requirements, while also showing knowledge of and enthusiasm 
         "temperature": 0.6,
     }
     
-    # Make the API request
     try:
-        response = requests.post(openrouter_config["api_url"], json=payload, headers=headers)
-        response_data = response.json()
+        # Call OpenRouter API with retry logic
+        response_data = await call_openrouter_api(
+            payload=payload,
+            api_key=openrouter_config["api_key"],
+            api_url=openrouter_config["api_url"]
+        )
         
-        # Check for errors in the API response
-        if response.status_code != 200:
-            logger.error(f"OpenRouter API error: {response_data}")
-            error_message = response_data.get('error', {}).get('message', 'Unknown error')
-            raise ValueError(f"Error from OpenRouter API: {error_message}")
-        
-        # Extract and return the generated cover letter
+        # Extract the generated cover letter
         cover_letter = response_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        
+        # Handle empty response
+        if not cover_letter.strip():
+            raise APIRequestError(
+                message="Received empty response",
+                service_name="OpenRouter",
+                details={"response": response_data}
+            )
         
         # Format the cover letter text before returning
         formatted_cover_letter = format_cover_letter(cover_letter)
@@ -127,5 +208,11 @@ that match the job requirements, while also showing knowledge of and enthusiasm 
         return formatted_cover_letter
     
     except Exception as e:
-        logger.error(f"Error generating cover letter: {str(e)}")
-        raise ValueError(f"Error generating cover letter: {str(e)}") 
+        # If it's not already an APIRequestError, wrap it
+        if not isinstance(e, APIRequestError):
+            raise APIRequestError(
+                message=f"Error generating cover letter: {str(e)}",
+                service_name="Cover Letter Generator", 
+                details={"error_type": type(e).__name__}
+            ) from e
+        raise 

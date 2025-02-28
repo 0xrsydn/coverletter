@@ -3,10 +3,12 @@ import base64
 import logging
 import time
 from typing import Dict, Any
-from fastapi import UploadFile, File, HTTPException
+from fastapi import UploadFile, File, HTTPException, Request
 
 from config import load_config
 from modules.errors.exceptions import APIRequestError, ConfigurationError, ValidationError
+from modules.monitoring.prometheus import API_ERRORS
+from modules.rate_limit import limiter
 from . import router
 
 # Set up logging
@@ -167,9 +169,17 @@ async def analyze_job_description_image(image_bytes, content_type):
 
 # API Routes
 @router.post("/analyze_job_desc_image")
-async def analyze_job_desc_image_route(job_desc_image: UploadFile = File(...)):
+@limiter.limit(load_config()["rate_limits"]["endpoints"]["analyze_job_desc_image"])
+async def analyze_job_desc_image_route(
+    request: Request,  # Required for rate limiting
+    job_desc_image: UploadFile = File(...)
+):
     """
     Analyze job description image using AI model.
+    
+    Args:
+        request: The HTTP request (required for rate limiting)
+        job_desc_image: The image file containing the job description
     """
     # Validate file is an image
     if not job_desc_image.content_type.startswith("image/"):

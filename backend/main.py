@@ -4,7 +4,7 @@ from fastapi.responses import PlainTextResponse
 import logging
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI, Form, HTTPException, UploadFile, File
+from fastapi import FastAPI, Form, HTTPException, UploadFile, File, Request
 from typing import Optional
 
 # Internal imports
@@ -17,6 +17,7 @@ from modules.errors import register_exception_handlers
 from modules.errors.exceptions import ValidationError, DocumentProcessingError
 from modules.monitoring import setup_metrics
 from modules.monitoring.prometheus import StepTimer, COVER_LETTER_GENERATED, API_ERRORS
+from modules.rate_limit import setup_rate_limiting, limiter
 
 # Import routers
 from modules.job import router as job_router
@@ -53,6 +54,9 @@ app.add_middleware(
     allow_headers=config["cors"]["allow_headers"],
 )
 
+# Setup rate limiting
+setup_rate_limiting(app, config)
+
 # Setup metrics for Prometheus
 setup_metrics(app)
 
@@ -79,7 +83,9 @@ async def health_check():
 
 # Main cover letter generation endpoint
 @app.post("/generate_cover_letter", response_class=PlainTextResponse)
+@limiter.limit(config["rate_limits"]["endpoints"]["generate_cover_letter"])
 async def generate_cover_letter_main(
+    request: Request,  # Required for rate limiting
     cv_file: UploadFile = File(...),
     job_desc_text: Optional[str] = Form(None),
     job_desc_image: UploadFile = File(None),
@@ -103,6 +109,7 @@ async def generate_cover_letter_main(
     Note: If both job description text and image are provided, the image will be prioritized.
     
     Args:
+        request: The HTTP request (required for rate limiting)
         cv_file: The user's CV/resume file (PDF or DOCX)
         job_desc_text: Job description text (optional if job_desc_image is provided)
         job_desc_image: Job description image file (optional if job_desc_text is provided)

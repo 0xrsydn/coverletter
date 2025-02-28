@@ -46,6 +46,22 @@ def load_config():
             "allow_headers": ["*"],
         },
         
+        # Rate limiting configuration - different limits based on environment
+        "rate_limits": {
+            # Global limit (applied to all endpoints if not overridden)
+            "global": "60/minute" if env == "development" else "30/minute",
+            
+            # Endpoint-specific limits (these override the global limit)
+            "endpoints": {
+                # Main endpoint - more restricted due to resource usage
+                "generate_cover_letter": "10/hour" if env == "development" else "5/hour",
+                
+                # Analysis endpoints
+                "analyze_company": "30/hour" if env == "development" else "15/hour",
+                "analyze_job_desc_image": "20/hour" if env == "development" else "10/hour",
+            }
+        },
+        
         # OpenRouter API configuration
         "openrouter": {
             "api_key": os.getenv("OPENROUTER_API_KEY"),

@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Form
+from fastapi import HTTPException, Form, Request
 import logging
 import time
 from typing import Dict, Any, Union, Optional
@@ -6,6 +6,7 @@ from typing import Dict, Any, Union, Optional
 from config import load_config
 from modules.errors.exceptions import APIRequestError, ConfigurationError, ValidationError
 from modules.monitoring.prometheus import API_ERRORS
+from modules.rate_limit import limiter
 from . import router
 
 # Set up logging
@@ -143,12 +144,17 @@ async def analyze_company_info(company_name: str) -> Union[str, Dict[str, Any]]:
 
 # API Routes
 @router.post("/analyze_company", response_model=str)
-async def analyze_company_route(company_name: str = Form(...)):
+@limiter.limit(load_config()["rate_limits"]["endpoints"]["analyze_company"])
+async def analyze_company_route(
+    request: Request,  # Required for rate limiting
+    company_name: str = Form(...)
+):
     """
     Analyze a company based on name input.
     Returns a plain text description of the company.
     
     Args:
+        request: The HTTP request (required for rate limiting)
         company_name: Name of the company to analyze (from form data)
     """
     try:

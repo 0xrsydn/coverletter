@@ -10,6 +10,7 @@ A FastAPI-based backend service for generating personalized cover letters based 
 - Cover letter generation using AI
 - Environment-based configuration
 - Prometheus metrics for monitoring
+- IP-based rate limiting to prevent abuse
 
 ## Setup and Installation
 
@@ -55,6 +56,27 @@ The application uses environment variables for configuration. The following vari
 - `OPENROUTER_API_KEY`: API key for OpenRouter
 - `OPENROUTER_MODEL`: Model to use with OpenRouter
 - `EXA_API_KEY`: API key for Exa AI
+
+## Rate Limiting
+
+The API implements IP-based rate limiting to prevent abuse:
+
+- Production limits:
+  - Global: 30 requests per minute per IP
+  - Cover letter generation: 5 requests per hour per IP
+  - Company analysis: 15 requests per hour per IP
+  - Job description analysis: 10 requests per hour per IP
+
+- Development limits:
+  - Global: 60 requests per minute per IP
+  - Cover letter generation: 10 requests per hour per IP
+  - Company analysis: 30 requests per hour per IP
+  - Job description analysis: 20 requests per hour per IP
+
+Clients can check rate limit status through the following response headers:
+- `X-RateLimit-Limit`: Maximum number of requests allowed
+- `X-RateLimit-Remaining`: Number of requests left in current time window
+- `X-RateLimit-Reset`: Time when the limit will reset
 
 ## Monitoring with Prometheus and Grafana
 

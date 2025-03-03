@@ -7,7 +7,6 @@ from fastapi import UploadFile, File, HTTPException, Request
 
 from config import load_config
 from modules.errors.exceptions import APIRequestError, ConfigurationError, ValidationError
-from modules.monitoring.prometheus import API_ERRORS
 from modules.rate_limit import limiter
 from . import router
 

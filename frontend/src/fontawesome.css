@@ -1,0 +1,70 @@
+/* FontAwesome Essential Icons */
+.fa,
+.fas,
+.far,
+.fal,
+.fad,
+.fab {
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  display: inline-block;
+  font-style: normal;
+  font-variant: normal;
+  text-rendering: auto;
+  line-height: 1;
+}
+
+/* Basic icon definitions - add more as needed */
+.fa-user:before {
+  content: "\f007";
+}
+
+.fa-file:before {
+  content: "\f15b";
+}
+
+.fa-paper-plane:before {
+  content: "\f1d8";
+}
+
+.fa-upload:before {
+  content: "\f093";
+}
+
+.fa-download:before {
+  content: "\f019";
+}
+
+.fa-copy:before {
+  content: "\f0c5";
+}
+
+.fa-clipboard:before {
+  content: "\f328";
+}
+
+.fa-spinner:before {
+  content: "\f110";
+}
+
+.fa-check:before {
+  content: "\f00c";
+}
+
+.fa-times:before {
+  content: "\f00d";
+}
+
+/* Add animations */
+.fa-spin {
+  animation: fa-spin 2s infinite linear;
+}
+
+@keyframes fa-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+} 

@@ -1,15 +1,15 @@
 // Environment configuration
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const isDevelopment = process.env.NODE_ENV === 'development';
 
 // API configuration
 const config = {
-  // API base URL - automatically detects environment
+  // API base URL - determined purely by NODE_ENV
   apiBaseUrl: isDevelopment 
-    ? 'http://localhost:8000'  // Development
-    : '/api', // Production - using relative path for same-domain API
+    ? 'http://localhost:8000'  // Development URL
+    : process.env.API_URL,     // Production URL from .env
 
   // Version info
-  version: '1.0.0',
+  version: process.env.npm_package_version || '1.0.0',
   
   // Feature flags
   features: {

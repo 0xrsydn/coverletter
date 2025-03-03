@@ -15,8 +15,6 @@ from modules.company.company import analyze_company_info
 from modules.cover_letter.cover_letter import generate_cover_letter
 from modules.errors import register_exception_handlers
 from modules.errors.exceptions import ValidationError, DocumentProcessingError
-from modules.monitoring import setup_metrics
-from modules.monitoring.prometheus import StepTimer, COVER_LETTER_GENERATED, API_ERRORS
 from modules.rate_limit import setup_rate_limiting, limiter
 
 # Import routers
@@ -56,9 +54,6 @@ app.add_middleware(
 
 # Setup rate limiting
 setup_rate_limiting(app, config)
-
-# Setup metrics for Prometheus
-setup_metrics(app)
 
 # Include routers
 app.include_router(job_router)
@@ -140,8 +135,7 @@ async def generate_cover_letter_main(
             )
         
         # Step 1: Extract text from the CV document
-        with StepTimer("document_processing"):
-            resume_text = await extract_docs(cv_file)
+        resume_text = await extract_docs(cv_file)
         
         # Validate CV text
         if not resume_text or not resume_text.strip():
@@ -153,11 +147,10 @@ async def generate_cover_letter_main(
         if job_desc_image and job_desc_text:
             # If both are provided, prioritize the image
             if job_desc_image.content_type.startswith("image/"):
-                with StepTimer("job_description_processing"):
-                    # Read the image file
-                    image_bytes = await job_desc_image.read()
-                    # Use the service to analyze the job description image
-                    job_description = await analyze_job_description_image(image_bytes, job_desc_image.content_type)
+                # Read the image file
+                image_bytes = await job_desc_image.read()
+                # Use the service to analyze the job description image
+                job_description = await analyze_job_description_image(image_bytes, job_desc_image.content_type)
                 logger.info(f"Using analyzed job description from image. Length: {len(job_description)}")
             else:
                 raise ValidationError(
@@ -174,11 +167,10 @@ async def generate_cover_letter_main(
                     details={"provided_content_type": job_desc_image.content_type}
                 )
             
-            with StepTimer("job_description_processing"):
-                # Read the image file
-                image_bytes = await job_desc_image.read()
-                # Use the service to analyze the job description image
-                job_description = await analyze_job_description_image(image_bytes, job_desc_image.content_type)
+            # Read the image file
+            image_bytes = await job_desc_image.read()
+            # Use the service to analyze the job description image
+            job_description = await analyze_job_description_image(image_bytes, job_desc_image.content_type)
             logger.info(f"Using analyzed job description from image. Length: {len(job_description)}")
         elif job_desc_text:
             # Only text is provided
@@ -191,26 +183,18 @@ async def generate_cover_letter_main(
         # Step 3: Get company information if company name is provided
         company_information = ""
         if company_name and company_name.strip():
-            with StepTimer("company_analysis"):
-                company_information = await analyze_company_info(company_name)
+            company_information = await analyze_company_info(company_name)
             logger.info(f"Retrieved company information for {company_name}. Length: {len(company_information)}")
         
         # Step 4: Generate the cover letter
         logger.info(f"Generating cover letter (CV length: {len(resume_text)}, Job desc length: {len(job_description)}, Company info length: {len(company_information)})")
         
-        with StepTimer("cover_letter_generation"):
-            cover_letter = await generate_cover_letter(resume_text, job_description, company_information)
-        
-        # Record success in metrics
-        COVER_LETTER_GENERATED.labels(status="success").inc()
+        cover_letter = await generate_cover_letter(resume_text, job_description, company_information)
         
         # Return the cover letter as plain text to preserve formatting
         return cover_letter
         
     except Exception as e:
-        # Record failure in metrics
-        COVER_LETTER_GENERATED.labels(status="error").inc()
-        
         # Let our global exception handler take care of this
         logger.error(f"Error in main cover letter endpoint: {str(e)}")
         raise

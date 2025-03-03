@@ -5,7 +5,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 const config = {
   // API base URL - determined purely by NODE_ENV
   apiBaseUrl: isDevelopment 
-    ? 'http://localhost:8000'  // Development URL
+    ? 'http://localhost:8000/generate_cover_letter'  // Development URL with path
     : process.env.API_URL,     // Production URL from .env
 
   // Version info

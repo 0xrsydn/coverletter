@@ -37,7 +37,7 @@ A modern web application that generates personalized cover letters based on your
 ## Building for Production
 
 ```
-npm run build
+NODE_ENV=production pnpm build
 ```
 
 This will create optimized files in the `dist/` directory ready for deployment.
@@ -54,7 +54,3 @@ The application automatically detects whether it's running in development or pro
 - Input sanitization with DOMPurify
 - Environment variables for sensitive URLs
 - Form validation
-
-## License
-
-ISC 

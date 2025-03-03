@@ -23,13 +23,13 @@ A FastAPI-based backend service for generating personalized cover letters based 
 1. Clone the repository
 2. Create a virtual environment:
    ```
-   python -m venv .venv
+   uv venv
    source .venv/bin/activate  # Linux/Mac
    .venv\Scripts\activate     # Windows
    ```
 3. Install dependencies:
    ```
-   pip install -r requirements.txt
+   uv pip install -r requirements.txt
    ```
 4. Copy `.env.example` to `.env` and fill in your API keys
 5. Run the application:

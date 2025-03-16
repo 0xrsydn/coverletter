@@ -5,7 +5,6 @@ from typing import Dict, Any, Union, Optional
 
 from config import load_config
 from modules.errors.exceptions import APIRequestError, ConfigurationError, ValidationError
-from modules.monitoring.prometheus import API_ERRORS
 from modules.rate_limit import limiter
 from . import router
 
@@ -53,13 +52,6 @@ async def execute_exa_search(exa_client, query: str, max_retries: int = 3) -> Di
             last_exception = e
             logger.warning(f"Exa API error (attempt {attempt+1}/{max_retries}): {str(e)}")
             
-            # Record the API error in metrics
-            API_ERRORS.labels(api_name="exa").inc()
-            
-            # If we've exhausted our retries, break the loop
-            if attempt == max_retries - 1:
-                break
-                
             # Wait before retrying with exponential backoff
             time.sleep(retry_delays[min(attempt, len(retry_delays)-1)])
     

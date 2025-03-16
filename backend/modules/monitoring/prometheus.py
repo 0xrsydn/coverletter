@@ -2,11 +2,21 @@
 Prometheus metrics configuration for FastAPI
 """
 import time
-from prometheus_fastapi_instrumentator import Instrumentator, metrics
-from prometheus_client import Counter, Histogram
+import platform
+import os
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_fastapi_instrumentator.metrics import latency, requests, requests_in_progress, dependency_timing, cpu_usage, memory_usage
+from prometheus_client import Counter, Histogram, Info, REGISTRY
+from prometheus_client.openmetrics.exposition import CONTENT_TYPE_LATEST, generate_latest
+from fastapi import Request, Response
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Get application info from environment
+APP_NAME = os.getenv("APP_NAME", "cover-letter-api")
+APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
+APP_ENV = os.getenv("APP_ENV", "development")
 
 # Custom metrics
 COVER_LETTER_GENERATED = Counter(
@@ -27,6 +37,46 @@ API_ERRORS = Counter(
     ["api_name"]  # openrouter, exa
 )
 
+# System information metrics
+SYSTEM_INFO = Info(
+    "application_info", 
+    "Application information"
+)
+
+def get_exemplar_value(request: Request):
+    """Extract the request ID from the request state to use as an exemplar"""
+    try:
+        if hasattr(request.state, "request_id"):
+            return {"request_id": request.state.request_id}
+        return {}
+    except:
+        return {}
+
+def metrics(request: Request) -> Response:
+    """Expose metrics with exemplars in OpenMetrics format"""
+    return Response(
+        generate_latest(REGISTRY), 
+        headers={"Content-Type": CONTENT_TYPE_LATEST}
+    )
+
+# Helper functions for incrementing counters with exemplars
+def increment_counter_with_exemplar(counter, label_name=None, label_value=None, request_id=None):
+    """
+    Increment a counter with optional exemplar
+    
+    Args:
+        counter: The Counter object
+        label_name: The name of the label (optional)
+        label_value: The value of the label (optional)
+        request_id: Request ID for exemplar (optional)
+    """
+    exemplar = {"request_id": request_id} if request_id else None
+    
+    if label_name and label_value:
+        counter.labels(**{label_name: label_value}).inc(exemplar=exemplar)
+    else:
+        counter.inc(exemplar=exemplar)
+
 def setup_metrics(app):
     """
     Set up Prometheus metrics for the FastAPI application.
@@ -37,18 +87,28 @@ def setup_metrics(app):
     # Create instrumentator
     instrumentator = Instrumentator()
     
-    # Add default metrics
-    instrumentator.add(metrics.latency())
-    instrumentator.add(metrics.requests())
-    instrumentator.add(metrics.requests_in_progress())
-    instrumentator.add(metrics.dependency_timing())
-    instrumentator.add(metrics.cpu_usage())
-    instrumentator.add(metrics.memory_usage())
+    # Add default metrics with exemplars
+    instrumentator.add(latency(buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0]))
+    instrumentator.add(requests())
+    instrumentator.add(requests_in_progress())
+    instrumentator.add(dependency_timing())
+    instrumentator.add(cpu_usage())
+    instrumentator.add(memory_usage())
+    
+    # Set system info
+    SYSTEM_INFO.info({
+        "app_name": APP_NAME,
+        "app_version": APP_VERSION,
+        "environment": APP_ENV,
+        "python_version": platform.python_version(),
+        "system": platform.system(),
+        "platform": platform.platform()
+    })
     
     # Add custom metrics handler
     @app.get("/metrics")
-    async def metrics():
-        return instrumentator.expose()
+    async def prometheus_metrics(request: Request):
+        return metrics(request)
     
     # Expose Prometheus metrics endpoint and instrument app
     instrumentator.instrument(app).expose(app)
@@ -65,9 +125,10 @@ class StepTimer:
         with StepTimer("document_processing"):
             # code to time
     """
-    def __init__(self, step_name):
+    def __init__(self, step_name, request_id=None):
         self.step_name = step_name
         self.start_time = None
+        self.request_id = request_id
         
     def __enter__(self):
         self.start_time = time.time()
@@ -75,5 +136,14 @@ class StepTimer:
         
     def __exit__(self, exc_type, exc_val, exc_tb):
         duration = time.time() - self.start_time
-        PROCESSING_TIME.labels(step=self.step_name).observe(duration)
+        
+        # Add exemplar if we have a request_id
+        exemplar = {}
+        if self.request_id:
+            exemplar = {"request_id": self.request_id}
+            
+        PROCESSING_TIME.labels(step=self.step_name).observe(
+            duration, 
+            exemplar=exemplar
+        )
         logger.debug(f"Step {self.step_name} completed in {duration:.2f} seconds") 

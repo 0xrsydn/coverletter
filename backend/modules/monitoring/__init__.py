@@ -1,1 +1,1 @@
-from .prometheus import setup_metrics 
+from .metrics import setup_metrics 

@@ -6,6 +6,6 @@ python-docx==0.8.11
 requests==2.31.0
 python-dotenv==1.0.0
 exa-py
-prometheus-fastapi-instrumentator==6.1.0
-prometheus-client==0.17.1
 slowapi==0.1.8
+prometheus-fastapi-instrumentator==6.1.0
+psutil==5.9.5

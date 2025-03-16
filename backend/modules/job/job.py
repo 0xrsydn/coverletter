@@ -2,12 +2,11 @@ import requests
 import base64
 import logging
 import time
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from fastapi import UploadFile, File, HTTPException, Request
 
 from config import load_config
 from modules.errors.exceptions import APIRequestError, ConfigurationError, ValidationError
-from modules.monitoring.prometheus import API_ERRORS
 from modules.rate_limit import limiter
 from . import router
 
@@ -164,6 +163,84 @@ async def analyze_job_description_image(image_bytes, content_type):
                 message=f"Error analyzing job description image: {str(e)}",
                 service_name="OpenRouter", 
                 details={"content_type": content_type, "error_type": type(e).__name__}
+            ) from e
+        raise
+
+async def analyze_job_requirements(job_description: str) -> Dict[str, Any]:
+    """
+    Analyze a job description text and extract key requirements.
+    
+    Args:
+        job_description: Text of the job description
+        
+    Returns:
+        Dictionary with analyzed job requirements
+    """
+    # Input validation
+    if not job_description or not job_description.strip():
+        raise ValidationError("Job description cannot be empty", field="job_desc")
+    
+    # Load configuration
+    config = load_config()
+    openrouter_config = config["openrouter"]
+    
+    if not openrouter_config["api_key"]:
+        raise ConfigurationError(
+            message="API key is missing or empty",
+            config_item="OPENROUTER_API_KEY"
+        )
+    
+    # Prepare the request to OpenRouter API
+    payload = {
+        "model": openrouter_config["model"],
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are an AI assistant specialized in analyzing job descriptions. Extract and organize the key information from job descriptions. Structure your response as a JSON object."
+            },
+            {
+                "role": "user",
+                "content": f"Analyze this job description and extract the key requirements, skills, and responsibilities. Return just the structured data as a JSON object with keys: 'title', 'required_skills', 'preferred_skills', 'responsibilities', 'years_experience'.\n\nJOB DESCRIPTION:\n{job_description}"
+            }
+        ]
+    }
+    
+    try:
+        # Make the API request with retry logic
+        response_data = await call_openrouter_api(
+            payload=payload,
+            api_key=openrouter_config["api_key"],
+            api_url=openrouter_config["api_url"]
+        )
+        
+        # Extract and parse the analysis
+        analysis_text = response_data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        
+        if not analysis_text.strip():
+            raise APIRequestError(
+                message="Received empty analysis for job description",
+                service_name="OpenRouter",
+                details={"job_description_length": len(job_description)}
+            )
+        
+        # Return the raw analysis text for now
+        # In a production environment, you'd want to parse this into proper JSON
+        return {
+            "analysis": analysis_text,
+            "raw_length": len(job_description)
+        }
+        
+    except Exception as e:
+        # Add monitoring metric for API errors
+        from modules.monitoring.metrics import API_ERRORS
+        API_ERRORS.labels(api_name="openrouter").inc()
+        
+        # If it's not already an APIRequestError, wrap it
+        if not isinstance(e, APIRequestError):
+            raise APIRequestError(
+                message=f"Error analyzing job description: {str(e)}",
+                service_name="OpenRouter", 
+                details={"error_type": type(e).__name__}
             ) from e
         raise
 

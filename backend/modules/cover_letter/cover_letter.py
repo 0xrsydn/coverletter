@@ -6,7 +6,6 @@ from typing import Optional, Dict, Any
 
 from config import load_config
 from modules.errors.exceptions import APIRequestError, ConfigurationError
-from modules.monitoring.prometheus import API_ERRORS
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -72,9 +71,6 @@ async def call_openrouter_api(payload: Dict[str, Any], api_key: str, api_url: st
                 error_message = response_data.get('error', {}).get('message', 'Unknown error')
                 logger.warning(f"OpenRouter API error (attempt {attempt+1}/{max_retries}): {error_message}")
                 
-                # Record the API error in metrics
-                API_ERRORS.labels(api_name="openrouter").inc()
-                
                 # If we've exhausted our retries, raise an exception
                 if attempt == max_retries - 1:
                     raise APIRequestError(
@@ -94,9 +90,6 @@ async def call_openrouter_api(payload: Dict[str, Any], api_key: str, api_url: st
         except requests.RequestException as e:
             last_exception = e
             logger.warning(f"Request error to OpenRouter API (attempt {attempt+1}/{max_retries}): {str(e)}")
-            
-            # Record the API error in metrics
-            API_ERRORS.labels(api_name="openrouter").inc()
             
             # If we've exhausted our retries, raise an exception
             if attempt == max_retries - 1:

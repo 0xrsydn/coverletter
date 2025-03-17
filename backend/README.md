@@ -5,12 +5,14 @@ A FastAPI-based backend service for generating personalized cover letters based 
 ## Features
 
 - CV/Resume parsing (PDF and DOCX)
-- Job description analysis (text and image)
-- Company information retrieval
-- Cover letter generation using AI
+- Job description analysis (text and image-based)
+- Company information retrieval through Exa AI
+- Cover letter generation using AI (OpenRouter with configurable models)
 - Environment-based configuration
-- Prometheus metrics for monitoring
-- IP-based rate limiting to prevent abuse
+- Prometheus metrics and logging for monitoring
+- IP-based rate limiting with configurable thresholds
+- Request ID tracking for log correlation
+- Docker containerization with health checks
 
 ## Setup and Installation
 
@@ -24,15 +26,17 @@ A FastAPI-based backend service for generating personalized cover letters based 
 1. Clone the repository
 2. Create a virtual environment:
    ```
-   uv venv
+   python -m venv .venv
    source .venv/bin/activate  # Linux/Mac
    .venv\Scripts\activate     # Windows
    ```
 3. Install dependencies:
    ```
-   uv pip install -r requirements.txt
+   pip install -r requirements.txt
    ```
-4. Copy `.env.example` to `.env` and fill in your API keys
+4. Copy `.env.example` to `.env` and fill in your API keys:
+   - `OPENROUTER_API_KEY`: For AI model access
+   - `EXA_API_KEY`: For company information retrieval
 5. Run the application:
    ```
    uvicorn main:app --reload
@@ -49,12 +53,12 @@ A FastAPI-based backend service for generating personalized cover letters based 
 
 ## Environment Configuration
 
-The application uses environment variables for configuration. The following variables are available:
+The application uses environment variables for configuration:
 
-- `APP_ENV`: The environment to run in (`development`, `production`)
+- `APP_ENV`: Environment to run in (`development`, `production`)
 - `ALLOWED_ORIGINS`: Comma-separated list of allowed CORS origins
 - `OPENROUTER_API_KEY`: API key for OpenRouter
-- `OPENROUTER_MODEL`: Model to use with OpenRouter
+- `OPENROUTER_MODEL`: Model to use with OpenRouter (default: google/gemini-2.0-flash-001)
 - `EXA_API_KEY`: API key for Exa AI
 
 ## Rate Limiting
@@ -78,18 +82,14 @@ Clients can check rate limit status through the following response headers:
 - `X-RateLimit-Remaining`: Number of requests left in current time window
 - `X-RateLimit-Reset`: Time when the limit will reset
 
-## Monitoring with Prometheus and Grafana
+## Monitoring and Logging
 
-The application exposes Prometheus metrics at the `/metrics` endpoint. To enable monitoring:
+The application provides several monitoring features:
 
-1. Uncomment the Prometheus and Grafana services in `docker-compose.yml`
-2. Create the necessary volume directories:
-   ```
-   mkdir -p prometheus grafana/dashboards grafana/provisioning/datasources grafana/provisioning/dashboards
-   ```
-3. Start the containers with `docker-compose up -d`
-4. Access Grafana at `http://localhost:3000` (default credentials: admin/admin)
-5. The Cover Letter API dashboard should be automatically provisioned
+- Prometheus metrics at the `/metrics` endpoint
+- Request ID tracking via `X-Request-ID` header
+- Detailed logging with request IDs for correlation
+- System health information at `/health` endpoint
 
 ## Project Structure
 
@@ -100,24 +100,32 @@ The application exposes Prometheus metrics at the `/metrics` endpoint. To enable
 ├── Dockerfile               # Docker configuration
 ├── docker-compose.yml       # Docker Compose configuration
 ├── modules/                 # Application modules
-│   ├── company/             # Company information module
-│   ├── cover_letter/        # Cover letter generation module
-│   ├── document/            # Document processing module
-│   ├── errors/              # Error handling module
-│   ├── job/                 # Job description module
-│   └── monitoring/          # Monitoring and metrics module
-├── prometheus/              # Prometheus configuration
-└── grafana/                 # Grafana configuration
+│   ├── company/             # Company information retrieval
+│   ├── cover_letter/        # Cover letter generation
+│   ├── document/            # Document parsing (PDF/DOCX)
+│   ├── errors/              # Error handling and exceptions
+│   ├── job/                 # Job description analysis
+│   ├── monitoring/          # Prometheus metrics
+│   └── rate_limit/          # Rate limiting implementation
 ```
 
 ## API Endpoints
 
+### Main Endpoints
+
+- `POST /generate_cover_letter`: Generate a cover letter from CV and job description
+  - Accepts PDF/DOCX resume, job description (text or image), and company name
+
+### Module-Specific Endpoints
+
+- `POST /job/analyze_job_desc_image`: Extract job description from an image
+- `POST /company/analyze_company`: Retrieve information about a company
+
+### Utility Endpoints
+
 - `GET /`: Welcome message
-- `GET /health`: Health check
+- `GET /health`: Health check with system information
 - `GET /metrics`: Prometheus metrics
-- `POST /generate_cover_letter`: Generate a cover letter
-- `POST /job/analyze_job_desc_image`: Analyze job description from image
-- `POST /company/analyze_company`: Analyze company information
 
 ## License
 

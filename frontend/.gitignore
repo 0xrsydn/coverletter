@@ -41,3 +41,7 @@ coverage/
 
 # System files
 Thumbs.db 
+
+dist/
+.parcel-cache/
+.DS_Store

@@ -105,7 +105,7 @@ async def call_openrouter_api(payload: Dict[str, Any], api_key: str, api_url: st
         details={"last_error": str(last_exception)}
     )
 
-async def generate_cover_letter(resume_text: str, job_description: str, company_info: str) -> str:
+async def generate_cover_letter(resume_text: str, job_description: str, company_info: str, word_limit: int = 500) -> str:
     """
     Generate a personalized cover letter using OpenRouter API with CV, job description, and company info.
     
@@ -113,6 +113,7 @@ async def generate_cover_letter(resume_text: str, job_description: str, company_
         resume_text: Extracted text from the user's CV/resume
         job_description: Job description text
         company_info: Information about the company
+        word_limit: Maximum number of words for the cover letter
         
     Returns:
         Generated cover letter text
@@ -136,7 +137,7 @@ job description, and company information. Follow these guidelines:
 2. Personalize the letter for the specific job and company.
 3. Highlight relevant skills and experiences from the CV that match the job requirements.
 4. Keep the tone professional but conversational.
-5. Be concise - aim for about 350-450 words.
+5. Be concise - adhere to the specified word limit.
 6. Include a strong opening paragraph, 2-3 body paragraphs, and a closing paragraph.
 7. Don't include the date or physical addresses.
 
@@ -155,8 +156,12 @@ JOB DESCRIPTION:
 COMPANY INFORMATION:
 {company_info}
 
+WORDS LIMIT:
+{word_limit}
+
 Please write a tailored cover letter that highlights the relevant skills and experiences from my CV 
 that match the job requirements, while also showing knowledge of and enthusiasm for the company.
+Adhere strictly to the word limit specified above.
 """
     
     # Prepare the payload for the OpenRouter API

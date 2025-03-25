@@ -152,7 +152,8 @@ async def generate_cover_letter_main(
     cv_file: UploadFile = File(...),
     job_desc_text: Optional[str] = Form(None),
     job_desc_image: UploadFile = File(None),
-    company_name: Optional[str] = Form(None)
+    company_name: Optional[str] = Form(None),
+    word_limit: Optional[int] = Form(500)
 ):
     """
     Main entry point for generating a cover letter from the frontend form.
@@ -160,7 +161,8 @@ async def generate_cover_letter_main(
     1. CV document parsing
     2. Job description (text or image)
     3. Company information (optional)
-    4. Cover letter generation
+    4. Word limit setting (optional, defaults to 500)
+    5. Cover letter generation
     """
     start_time = time.time()
     logger.info("Starting cover letter generation process")
@@ -200,7 +202,8 @@ async def generate_cover_letter_main(
             cover_letter = generate_cover_letter(
                 cv_text=cv_text,
                 job_description=job_description,
-                company_info=company_info
+                company_info=company_info,
+                word_limit=word_limit
             )
             logger.info(f"Cover letter generated: {len(cover_letter)} characters")
         
@@ -229,11 +232,12 @@ async def generate_cover_letter_endpoint(
     resume: UploadFile = File(...),
     job_desc: str = Form(...),
     company: Optional[str] = Form(None),
-    app_id: Optional[str] = Form(None)
+    app_id: Optional[str] = Form(None),
+    word_limit: Optional[int] = Form(500)
 ):
     """
     Generate a cover letter based on the uploaded resume and job description.
-    Optionally, provide company information and an application ID.
+    Optionally, provide company information, an application ID, and word limit.
     """
     try:
         logger.info("Cover letter generation request received")
@@ -267,7 +271,8 @@ async def generate_cover_letter_endpoint(
                 resume_text, 
                 job_desc, 
                 job_analysis, 
-                company_info
+                company_info,
+                word_limit=word_limit
             )
         
         generation_time = time.time() - start_time

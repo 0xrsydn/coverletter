@@ -65,4 +65,14 @@ export function validateForm(formData) {
   }
   
   return { isValid: true, errorMessage: '' };
+}
+
+/**
+ * Count the number of words in a text string
+ * @param {string} text - The text to count words in
+ * @returns {number} Number of words
+ */
+export function countWords(text) {
+  if (!text || text.trim() === '') return 0;
+  return text.trim().split(/\s+/).length;
 } 

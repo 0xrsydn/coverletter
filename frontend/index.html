@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="retro">
+<html lang="en" data-theme="cupcake">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -26,11 +26,11 @@
     <!-- Load our modules -->
     <script type="module">
         import config from './src/config.js';
-        import { sanitizeInput, sanitizeHtml, showError, validateForm } from './src/utils.js';
+        import { sanitizeInput, sanitizeHtml, showError, validateForm, countWords } from './src/utils.js';
         
         // Make config and utils available globally
         window.appConfig = config;
-        window.appUtils = { sanitizeInput, sanitizeHtml, showError, validateForm };
+        window.appUtils = { sanitizeInput, sanitizeHtml, showError, validateForm, countWords };
     </script>
 </head>
 <body class="bg-gray-100">
@@ -149,9 +149,32 @@
                         >
                     </div>
 
+                    <!-- Word Limit Section -->
+                    <div class="mb-6 border-b pb-4">
+                        <h3 class="text-lg font-semibold mb-2">Step 4: Set Word Limit</h3>
+                        <div class="form-control">
+                            <label class="label" for="word_limit">
+                                <span class="label-text font-semibold text-gray-800">Maximum Word Count</span>
+                            </label>
+                            <input 
+                                type="number" 
+                                class="input input-bordered validator w-full" 
+                                required 
+                                placeholder="Enter word limit (200-3000)" 
+                                min="200" 
+                                max="3000" 
+                                value="500"
+                                id="word_limit" 
+                                name="word_limit"
+                                title="Must be between 200 and 3000 words"
+                            />
+                            <p class="validator-hint text-xs mt-1">Must be between 200 and 3000 words</p>
+                        </div>
+                    </div>
+
                     <!-- Generate Button -->
                     <div class="pt-4">
-                        <h3 class="text-lg font-semibold mb-2">Step 4: Generate Your Cover Letter</h3>
+                        <h3 class="text-lg font-semibold mb-2">Step 5: Generate Your Cover Letter</h3>
                         <button type="submit" id="generate_btn" class="btn btn-primary w-full">GENERATE COVER LETTER</button>
                         <div id="cover_letter_loading" class="mt-4 text-center hidden">
                             <div class="flex flex-col items-center p-4 bg-primary bg-opacity-10 rounded-lg border border-primary border-opacity-20">
@@ -182,6 +205,11 @@
                     style="height: 400px;" 
                     placeholder="Your generated cover letter will appear here..."
                 ></textarea>
+                <div class="flex justify-between mt-2 text-sm">
+                    <div class="text-gray-600">
+                        Word count: <span id="current_word_count">0</span>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -199,9 +227,51 @@
     <!-- Main application script -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Import the countWords function
+            const { countWords } = window.appUtils;
+            
             // Set the API endpoint based on the environment config
             const apiEndpoint = window.appConfig.apiBaseUrl + '/generate_cover_letter';
             document.getElementById('cover_letter_form').setAttribute('hx-post', apiEndpoint);
+            
+            // Handle word limit input
+            const wordLimitInput = document.getElementById('word_limit');
+            
+            // Add input validation for word limit
+            wordLimitInput.addEventListener('input', function() {
+                const value = parseInt(this.value);
+                if (value < 200) {
+                    this.value = 200;
+                } else if (value > 3000) {
+                    this.value = 3000;
+                }
+            });
+            
+            // Handle word count in the editor
+            const coverLetterEditor = document.getElementById('cover_letter_editor');
+            const currentWordCount = document.getElementById('current_word_count');
+            
+            // Update word count when text changes
+            coverLetterEditor.addEventListener('input', updateWordCount);
+            
+            // Also update word count when content is loaded from API
+            document.body.addEventListener('htmx:afterSwap', function(event) {
+                if (event.detail.target.id === 'cover_letter_editor') {
+                    updateWordCount();
+                }
+            });
+            
+            function updateWordCount() {
+                const count = countWords(coverLetterEditor.value);
+                currentWordCount.textContent = count;
+                
+                // Highlight if over the limit
+                if (count > parseInt(wordLimitInput.value)) {
+                    currentWordCount.classList.add('text-error', 'font-bold');
+                } else {
+                    currentWordCount.classList.remove('text-error', 'font-bold');
+                }
+            }
             
             // Toggle between text and image job description inputs
             const jobDescRadios = document.querySelectorAll('input[name="job_desc_type"]');
@@ -235,6 +305,11 @@
                     event.preventDefault();
                     return;
                 }
+                
+                // Add word limit to the request
+                const wordLimit = document.getElementById('word_limit').value;
+                const validWordLimit = Math.min(Math.max(parseInt(wordLimit) || 500, 200), 3000);
+                formData.set('word_limit', validWordLimit);
                 
                 // Sanitize text inputs
                 const companyName = document.getElementById('company_name').value;
@@ -310,5 +385,20 @@
             });
         });
     </script>
+
+    <!-- Theme Switcher -->
+    <div class="fixed bottom-4 right-4 dropdown dropdown-top dropdown-end">
+        <div tabindex="0" role="button" class="btn btn-sm m-1">Theme</div>
+        <ul tabindex="0" class="dropdown-content z-[1] p-2 shadow-2xl bg-base-100 rounded-box w-52 max-h-96 overflow-y-auto">
+            <li><button class="btn btn-sm btn-ghost w-full justify-start" onclick="document.documentElement.setAttribute('data-theme', 'cupcake')">Cupcake</button></li>
+            <li><button class="btn btn-sm btn-ghost w-full justify-start" onclick="document.documentElement.setAttribute('data-theme', 'emerald')">Emerald</button></li>
+            <li><button class="btn btn-sm btn-ghost w-full justify-start" onclick="document.documentElement.setAttribute('data-theme', 'cyberpunk')">Cyberpunk</button></li>
+            <li><button class="btn btn-sm btn-ghost w-full justify-start" onclick="document.documentElement.setAttribute('data-theme', 'valentine')">Valentine</button></li>
+            <li><button class="btn btn-sm btn-ghost w-full justify-start" onclick="document.documentElement.setAttribute('data-theme', 'garden')">Garden</button></li>
+            <li><button class="btn btn-sm btn-ghost w-full justify-start" onclick="document.documentElement.setAttribute('data-theme', 'lofi')">Lofi</button></li>
+            <li><button class="btn btn-sm btn-ghost w-full justify-start" onclick="document.documentElement.setAttribute('data-theme', 'pastel')">Pastel</button></li>
+            <li><button class="btn btn-sm btn-ghost w-full justify-start" onclick="document.documentElement.setAttribute('data-theme', 'fantasy')">Fantasy</button></li>
+        </ul>
+    </div>
 </body>
 </html>

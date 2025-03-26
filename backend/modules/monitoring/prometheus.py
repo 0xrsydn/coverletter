@@ -4,8 +4,6 @@ Prometheus metrics configuration for FastAPI
 import time
 import platform
 import os
-from prometheus_fastapi_instrumentator import Instrumentator
-from prometheus_fastapi_instrumentator.metrics import latency, requests, requests_in_progress, dependency_timing, cpu_usage, memory_usage
 from prometheus_client import Counter, Histogram, Info, REGISTRY
 from prometheus_client.openmetrics.exposition import CONTENT_TYPE_LATEST, generate_latest
 from fastapi import Request, Response
@@ -76,46 +74,6 @@ def increment_counter_with_exemplar(counter, label_name=None, label_value=None, 
         counter.labels(**{label_name: label_value}).inc(exemplar=exemplar)
     else:
         counter.inc(exemplar=exemplar)
-
-def setup_metrics(app):
-    """
-    Set up Prometheus metrics for the FastAPI application.
-    
-    Args:
-        app: FastAPI application
-    """
-    # Create instrumentator
-    instrumentator = Instrumentator()
-    
-    # Add default metrics with exemplars
-    instrumentator.add(latency(buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0]))
-    instrumentator.add(requests())
-    instrumentator.add(requests_in_progress())
-    instrumentator.add(dependency_timing())
-    instrumentator.add(cpu_usage())
-    instrumentator.add(memory_usage())
-    
-    # Set system info
-    SYSTEM_INFO.info({
-        "app_name": APP_NAME,
-        "app_version": APP_VERSION,
-        "environment": APP_ENV,
-        "python_version": platform.python_version(),
-        "system": platform.system(),
-        "platform": platform.platform()
-    })
-    
-    # Add custom metrics handler
-    @app.get("/metrics")
-    async def prometheus_metrics(request: Request):
-        return metrics(request)
-    
-    # Expose Prometheus metrics endpoint and instrument app
-    instrumentator.instrument(app).expose(app)
-    
-    logger.info("Prometheus metrics enabled at /metrics")
-    
-    return instrumentator
 
 class StepTimer:
     """

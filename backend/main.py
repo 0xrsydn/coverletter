@@ -169,43 +169,78 @@ async def generate_cover_letter_main(
     request_id = getattr(request.state, "request_id", None)
     
     try:
+        # Validate inputs
+        if not cv_file:
+            raise ValidationError("CV file is required")
+            
+        if not job_desc_text and not job_desc_image:
+            raise ValidationError("Either job description text or image must be provided")
+            
+        if word_limit and (word_limit < 50 or word_limit > 2000):
+            raise ValidationError("Word limit must be between 50 and 2000 words")
+        
         # Step 1: Process CV document
-        with StepTimer("document_processing", request_id):
-            cv_text = await extract_docs(cv_file)
-            logger.info(f"CV processed: {len(cv_text)} characters extracted")
+        try:
+            with StepTimer("document_processing", request_id):
+                cv_text = await extract_docs(cv_file)
+                if not cv_text or len(cv_text.strip()) < 10:
+                    raise DocumentProcessingError("Could not extract sufficient text from CV document")
+                logger.info(f"CV processed: {len(cv_text)} characters extracted")
+        except Exception as e:
+            logger.error(f"Error processing document: {str(e)}")
+            raise DocumentProcessingError(f"Error processing your CV: {str(e)}")
         
         # Step 2: Process job description
         job_description = None
-        with StepTimer("job_analysis", request_id):
-            if job_desc_text:
-                job_description = job_desc_text
-                logger.info("Job description processed from text input")
-            elif job_desc_image:
-                job_description = await analyze_job_description_image(job_desc_image)
-                logger.info("Job description processed from image")
-            else:
-                raise ValidationError("Either job description text or image must be provided")
-                
-            # Analyze job requirements
-            job_requirements = analyze_job_requirements(job_description)
-            logger.info(f"Job requirements extracted: {len(job_requirements)} requirements found")
+        try:
+            with StepTimer("job_analysis", request_id):
+                if job_desc_text:
+                    job_description = job_desc_text
+                    logger.info("Job description processed from text input")
+                elif job_desc_image:
+                    job_description = await analyze_job_description_image(await job_desc_image.read(), job_desc_image.content_type)
+                    logger.info("Job description processed from image")
+                else:
+                    raise ValidationError("Either job description text or image must be provided")
+                    
+                # Analyze job requirements
+                job_analysis = await analyze_job_requirements(job_description)
+                logger.info(f"Job requirements extracted: {len(job_analysis)} requirements found")
+        except Exception as e:
+            logger.error(f"Error processing job description: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error analyzing job description: {str(e)}")
         
         # Step 3: Get company information if provided
         company_info = None
         if company_name:
-            with StepTimer("company_analysis", request_id):
-                company_info = analyze_company_info(company_name)
-                logger.info(f"Company information retrieved for {company_name}")
+            try:
+                with StepTimer("company_analysis", request_id):
+                    company_info = analyze_company_info(company_name)
+                    logger.info(f"Company information retrieved for {company_name}")
+            except Exception as e:
+                logger.warning(f"Error retrieving company info for {company_name}: {str(e)}")
+                # Continue without company info rather than failing
+                company_info = None
+                logger.info("Continuing without company information")
         
         # Step 4: Generate cover letter
-        with StepTimer("letter_generation", request_id):
-            cover_letter = generate_cover_letter(
-                cv_text=cv_text,
-                job_description=job_description,
-                company_info=company_info,
-                word_limit=word_limit
-            )
-            logger.info(f"Cover letter generated: {len(cover_letter)} characters")
+        try:
+            with StepTimer("letter_generation", request_id):
+                cover_letter = await generate_cover_letter(
+                    resume_text=cv_text,
+                    job_description=job_description,
+                    company_info=company_info,
+                    word_limit=word_limit
+                )
+                if not cover_letter or len(cover_letter.strip()) < 50:
+                    raise HTTPException(
+                        status_code=500, 
+                        detail="Generated cover letter is too short or empty. Please try again."
+                    )
+                logger.info(f"Cover letter generated: {len(cover_letter)} characters")
+        except Exception as e:
+            logger.error(f"Error generating cover letter: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error generating cover letter: {str(e)}")
         
         generation_time = time.time() - start_time
         logger.info(f"Cover letter generated successfully in {generation_time:.2f} seconds")
@@ -215,15 +250,25 @@ async def generate_cover_letter_main(
         
         return cover_letter
         
-    except Exception as e:
-        logger.error(f"Error generating cover letter: {str(e)}")
+    except ValidationError as e:
+        logger.warning(f"Validation error: {str(e)}")
+        increment_counter_with_exemplar(COVER_LETTER_GENERATED, "status", "validation_error", request_id)
+        raise HTTPException(status_code=400, detail=str(e))
         
-        # Record error in metrics
+    except DocumentProcessingError as e:
+        logger.error(f"Document processing error: {str(e)}")
+        increment_counter_with_exemplar(COVER_LETTER_GENERATED, "status", "document_error", request_id)
+        raise HTTPException(status_code=422, detail=str(e))
+        
+    except HTTPException as e:
+        # Re-raise HTTP exceptions
         increment_counter_with_exemplar(COVER_LETTER_GENERATED, "status", "error", request_id)
+        raise
         
-        if isinstance(e, ValidationError) or isinstance(e, DocumentProcessingError):
-            raise e
-        raise HTTPException(status_code=500, detail=f"Error generating cover letter: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error generating cover letter: {str(e)}")
+        increment_counter_with_exemplar(COVER_LETTER_GENERATED, "status", "error", request_id)
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
 @app.post("/api/generate-cover-letter")
 @limiter.limit(config["rate_limits"]["endpoints"]["generate_cover_letter"])
@@ -246,14 +291,13 @@ async def generate_cover_letter_endpoint(
         # Step 1: Extract resume data
         logger.info("Step 1: Extracting resume data")
         with StepTimer("document_processing"):
-            resume_content = await resume.read()
-            resume_text = extract_docs(resume_content, resume.filename)
+            resume_text = await extract_docs(resume)
         logger.info(f"Resume extracted ({len(resume_text)} chars)")
             
         # Step 2: Analyze job description
         logger.info("Step 2: Analyzing job description")
         with StepTimer("job_analysis"):
-            job_analysis = analyze_job_requirements(job_desc)
+            job_analysis = await analyze_job_requirements(job_desc)
         logger.info("Job description analyzed")
         
         # Step 3: Company analysis (if provided)
@@ -267,11 +311,10 @@ async def generate_cover_letter_endpoint(
         # Step 4: Generate cover letter
         logger.info("Step 4: Generating cover letter")
         with StepTimer("letter_generation"):
-            cover_letter = generate_cover_letter(
-                resume_text, 
-                job_desc, 
-                job_analysis, 
-                company_info,
+            cover_letter = await generate_cover_letter(
+                resume_text=resume_text, 
+                job_description=job_desc, 
+                company_info=company_info,
                 word_limit=word_limit
             )
         
@@ -305,7 +348,7 @@ async def analyze_job_description_image_endpoint(
     try:
         with StepTimer("job_image_analysis"):
             image_data = await image.read()
-            result = analyze_job_description_image(image_data)
+            result = await analyze_job_description_image(image_data, image.content_type)
         return result
     except Exception as e:
         # Track API errors in metrics

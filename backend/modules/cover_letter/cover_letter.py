@@ -177,7 +177,7 @@ Adhere strictly to the word limit specified above.
                 "content": user_prompt
             }
         ],
-        "max_tokens": 1000,
+        "max_tokens": 3000,
         "temperature": 0.6,
     }
     

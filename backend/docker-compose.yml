@@ -1,5 +1,3 @@
-version: '3.8'
-
 # Define the logging configuration for Loki
 x-logging: &default-logging
   driver: loki

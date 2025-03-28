@@ -153,7 +153,7 @@ async def generate_cover_letter_main(
     job_desc_text: Optional[str] = Form(None),
     job_desc_image: UploadFile = File(None),
     company_name: Optional[str] = Form(None),
-    word_limit: Optional[int] = Form(500)
+    word_limit: Optional[int] = Form(300)
 ):
     """
     Main entry point for generating a cover letter from the frontend form.
@@ -176,7 +176,7 @@ async def generate_cover_letter_main(
         if not job_desc_text and not job_desc_image:
             raise ValidationError("Either job description text or image must be provided")
             
-        if word_limit and (word_limit < 50 or word_limit > 2000):
+        if word_limit and (word_limit < 250 or word_limit > 400):
             raise ValidationError("Word limit must be between 50 and 2000 words")
         
         # Step 1: Process CV document

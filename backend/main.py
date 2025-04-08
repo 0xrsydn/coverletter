@@ -161,7 +161,7 @@ async def generate_cover_letter_main(
     1. CV document parsing
     2. Job description (text or image)
     3. Company information (optional)
-    4. Word limit setting (optional, defaults to 500)
+    4. Word limit setting (optional, defaults to 300)
     5. Cover letter generation
     """
     start_time = time.time()
@@ -177,7 +177,7 @@ async def generate_cover_letter_main(
             raise ValidationError("Either job description text or image must be provided")
             
         if word_limit and (word_limit < 250 or word_limit > 400):
-            raise ValidationError("Word limit must be between 50 and 2000 words")
+            raise ValidationError("Word limit must be between 250 and 400 words")
         
         # Step 1: Process CV document
         try:

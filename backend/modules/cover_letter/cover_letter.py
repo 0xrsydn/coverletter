@@ -138,12 +138,13 @@ job description, and company information. Follow these guidelines:
 3. Highlight relevant skills and experiences from the CV that match the job requirements.
 4. Keep the tone professional but conversational.
 5. Be concise - adhere to the specified word limit.
-6. Structure the letter in 3-4 short paragraphs with clear flow:
+6. Make sure the letter length is above 200 words while limited to {word_limit} words.
+7. Structure the letter in 3-4 short paragraphs with clear flow:
    - Introduction: Brief introduction and statement of interest in the position
    - Skills/Experience: Highlight relevant skills and experiences that match the job
    - Enthusiasm: Show knowledge of and enthusiasm for the company
    - Closing: Reiterate interest and invite further discussion
-7. Don't include the date or physical addresses.
+8. Don't include the date or physical addresses.
 
 Begin with "Dear Hiring Manager," unless a specific name is provided.
 End with "Sincerely," followed by a placeholder for the applicant's name.

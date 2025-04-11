@@ -162,7 +162,7 @@ async def health_check():
     }
 
 # Main cover letter generation endpoint
-@app.post("/generate_cover_letter", response_class=PlainTextResponse)
+@app.post("/api/generate_cover_letter", response_class=PlainTextResponse)
 @limiter.limit(config["rate_limits"]["endpoints"]["generate_cover_letter"])
 async def generate_cover_letter_main(
     request: Request,  # Required for rate limiting
@@ -286,115 +286,6 @@ async def generate_cover_letter_main(
         logger.error(f"Unexpected error generating cover letter: {str(e)}")
         increment_counter_with_exemplar(COVER_LETTER_GENERATED, "status", "error", request_id)
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
-
-@app.post("/api/generate-cover-letter")
-@limiter.limit(config["rate_limits"]["endpoints"]["generate_cover_letter"])
-async def generate_cover_letter_endpoint(
-    request: Request,
-    resume: UploadFile = File(...),
-    job_desc: str = Form(...),
-    company: Optional[str] = Form(None),
-    app_id: Optional[str] = Form(None),
-    word_limit: Optional[int] = Form(500)
-):
-    """
-    Generate a cover letter based on the uploaded resume and job description.
-    Optionally, provide company information, an application ID, and word limit.
-    """
-    try:
-        logger.info("Cover letter generation request received")
-        start_time = time.time()
-        
-        # Step 1: Extract resume data
-        logger.info("Step 1: Extracting resume data")
-        with StepTimer("document_processing"):
-            resume_text = await extract_docs(resume)
-        logger.info(f"Resume extracted ({len(resume_text)} chars)")
-            
-        # Step 2: Analyze job description
-        logger.info("Step 2: Analyzing job description")
-        with StepTimer("job_analysis"):
-            job_analysis = await analyze_job_requirements(job_desc)
-        logger.info("Job description analyzed")
-        
-        # Step 3: Company analysis (if provided)
-        company_info = None
-        if company:
-            logger.info(f"Step 3: Analyzing company information for: {company}")
-            with StepTimer("company_analysis"):
-                company_info = analyze_company_info(company)
-            logger.info("Company information analyzed")
-        
-        # Step 4: Generate cover letter
-        logger.info("Step 4: Generating cover letter")
-        with StepTimer("letter_generation"):
-            cover_letter = await generate_cover_letter(
-                resume_text=resume_text, 
-                job_description=job_desc, 
-                company_info=company_info,
-                word_limit=word_limit
-            )
-        
-        generation_time = time.time() - start_time
-        logger.info(f"Cover letter generated successfully in {generation_time:.2f} seconds")
-        
-        # Record success in metrics
-        increment_counter_with_exemplar(COVER_LETTER_GENERATED, "status", "success")
-        
-        return {"cover_letter": cover_letter}
-        
-    except Exception as e:
-        logger.error(f"Error generating cover letter: {str(e)}")
-        
-        # Record error in metrics
-        increment_counter_with_exemplar(COVER_LETTER_GENERATED, "status", "error")
-        
-        if isinstance(e, ValidationError) or isinstance(e, DocumentProcessingError):
-            raise e
-        raise HTTPException(status_code=500, detail=f"Error generating cover letter: {str(e)}")
-
-@app.post("/api/analyze-job-description-image")
-@limiter.limit(config["rate_limits"]["endpoints"]["analyze_job_desc_image"])
-async def analyze_job_description_image_endpoint(
-    request: Request,
-    image: UploadFile = File(...)
-):
-    """
-    Extract and analyze job description from an uploaded image
-    """
-    try:
-        with StepTimer("job_image_analysis"):
-            image_data = await image.read()
-            result = await analyze_job_description_image(image_data, image.content_type)
-        return result
-    except Exception as e:
-        # Track API errors in metrics
-        increment_counter_with_exemplar(API_ERRORS, "api_name", "job_analysis")
-        
-        logger.error(f"Error analyzing job description image: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/analyze-company")
-@limiter.limit(config["rate_limits"]["endpoints"]["analyze_company"])
-async def analyze_company_endpoint(
-    request: Request,
-    company_name: str = Form(...)
-):
-    """
-    Analyze company information
-    """
-    request_id = getattr(request.state, "request_id", None)
-    try:
-        with StepTimer("company_analysis", request_id):
-            result = analyze_company_info(company_name)
-        return result
-    except Exception as e:
-        # Track API errors in metrics
-        increment_counter_with_exemplar(API_ERRORS, "api_name", "company_analysis", request_id)
-        
-        logger.error(f"Error analyzing company: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

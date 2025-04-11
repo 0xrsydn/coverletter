@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="cupcake">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cover Letter Generator</title>
+    <!-- Include Tailwind CSS and DaisyUI via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Include HTMX for form submission -->
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    <style>
+        #cover-letter-output {
+            white-space: pre-wrap;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        }
+        
+        /* Style for disabled button during loading */
+        .htmx-request.btn-primary {
+            background-color: #d1d5db !important;
+            border-color: #d1d5db !important;
+            color: #6b7280 !important;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="bg-base-100">
+    <div class="container mx-auto p-4">
+        <!-- Theme Selection -->
+        <div class="mb-6 flex justify-end">
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Select Theme</span>
+                </label>
+                <select id="theme-selector" class="select select-bordered">
+                    <option value="cupcake" selected>Cupcake</option>
+                    <option value="emerald">Emerald</option>
+                    <option value="cyberpunk">Cyberpunk</option>
+                    <option value="valentine">Valentine</option>
+                    <option value="garden">Garden</option>
+                    <option value="lofi">Lo-Fi</option>
+                    <option value="pastel">Pastel</option>
+                    <option value="fantasy">Fantasy</option>
+                </select>
+            </div>
+        </div>
+
+        <h1 class="text-3xl font-bold mb-6">Generate Cover Letter</h1>
+        
+        <!-- Input Form Card -->
+        <div class="card bg-base-200 shadow-xl mb-6">
+            <div class="card-body">
+                <h2 class="card-title">Cover Letter Information</h2>
+                <form id="cover-letter-form" 
+                    hx-post="http://localhost:8000/generate_cover_letter" 
+                    hx-target="#cover-letter-output" 
+                    hx-encoding="multipart/form-data" 
+                    class="space-y-4">
+                    
+                    <div class="form-control">
+                        <label class="label" for="cv_file">
+                            <span class="label-text">Upload CV (PDF, DOCX, etc.)</span>
+                        </label>
+                        <input type="file" name="cv_file" id="cv_file" class="file-input file-input-bordered w-full" required>
+                    </div>
+                    
+                    <!-- Job Description Format Radio Buttons -->
+                    <div class="form-control">
+                        <label class="label">
+                            <span class="label-text">Job Description Format</span>
+                        </label>
+                        <div class="flex gap-4">
+                            <label class="label cursor-pointer gap-2">
+                                <input type="radio" name="job_desc_format" value="text" class="radio radio-primary" checked onchange="toggleJobDescFormat(this)">
+                                <span class="label-text">Text</span>
+                            </label>
+                            <label class="label cursor-pointer gap-2">
+                                <input type="radio" name="job_desc_format" value="image" class="radio radio-primary" onchange="toggleJobDescFormat(this)">
+                                <span class="label-text">Image</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Job Description Text (initially visible) -->
+                    <div id="job-desc-text-container" class="form-control">
+                        <label class="label" for="job_desc_text">
+                            <span class="label-text">Job Description Text</span>
+                        </label>
+                        <textarea name="job_desc_text" id="job_desc_text" class="textarea textarea-bordered" rows="5"></textarea>
+                    </div>
+                    
+                    <!-- Job Description Image (initially hidden) -->
+                    <div id="job-desc-image-container" class="form-control hidden">
+                        <label class="label" for="job_desc_image">
+                            <span class="label-text">Upload Job Description Image</span>
+                        </label>
+                        <input type="file" name="job_desc_image" id="job_desc_image" class="file-input file-input-bordered w-full">
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label" for="company_name">
+                            <span class="label-text">Company Name (optional)</span>
+                        </label>
+                        <input type="text" name="company_name" id="company_name" class="input input-bordered w-full">
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label" for="word_limit">
+                            <span class="label-text">Word Limit (optional, default 300)</span>
+                        </label>
+                        <input type="number" name="word_limit" id="word_limit" min="50" max="2000" value="300" class="input input-bordered w-full">
+                    </div>
+                    
+                    <div class="flex justify-center w-full">
+                        <button type="submit" id="generate-btn" class="btn btn-disabled bg-gray-300 w-full sm:w-64 relative h-12" disabled>
+                            <!-- Loading spinner positioned absolutely so it doesn't affect text alignment -->
+                            <div class="absolute left-4 top-1/2 transform -translate-y-1/2 htmx-indicator">
+                                <span class="loading loading-spinner loading-xs"></span>
+                            </div>
+                            <!-- Text perfectly centered regardless of spinner visibility -->
+                            <span class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 whitespace-nowrap">
+                                Generate Cover Letter
+                            </span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Output Card -->
+        <div class="card bg-base-200 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">Generated Cover Letter</h2>
+                <textarea id="cover-letter-output" class="textarea textarea-bordered w-full h-64" placeholder="Your generated cover letter will appear here..."></textarea>
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-2">
+                    <div class="text-sm mb-2 sm:mb-0">
+                        <div>Word count: <span id="word-count">0</span></div>
+                        <div>Character count: <span id="character-count">0</span></div>
+                    </div>
+                    <button onclick="copyToClipboard()" class="btn btn-secondary">Copy to Clipboard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Container (DaisyUI) -->
+    <div class="toast toast-end" id="toast-container"></div>
+    
+    <script>
+        // Toggle between text and image job description formats
+        function toggleJobDescFormat(radioBtn) {
+            const textContainer = document.getElementById('job-desc-text-container');
+            const imageContainer = document.getElementById('job-desc-image-container');
+            
+            if (radioBtn.value === 'text') {
+                textContainer.classList.remove('hidden');
+                imageContainer.classList.add('hidden');
+                // Clear image file when switching to text
+                document.getElementById('job_desc_image').value = '';
+            } else {
+                textContainer.classList.add('hidden');
+                imageContainer.classList.remove('hidden');
+                // Clear text when switching to image
+                document.getElementById('job_desc_text').value = '';
+            }
+            
+            validateForm();
+        }
+        
+        // Validate form and update button state
+        function validateForm() {
+            const resumeFile = document.getElementById('cv_file').files.length > 0;
+            const jobDescFormat = document.querySelector('input[name="job_desc_format"]:checked').value;
+            
+            let isJobDescFilled = false;
+            if (jobDescFormat === 'text') {
+                isJobDescFilled = document.getElementById('job_desc_text').value.trim() !== '';
+            } else {
+                isJobDescFilled = document.getElementById('job_desc_image').files.length > 0;
+            }
+            
+            const isValid = resumeFile && isJobDescFilled;
+            const generateBtn = document.getElementById('generate-btn');
+            
+            if (isValid) {
+                generateBtn.disabled = false;
+                generateBtn.classList.remove('btn-disabled', 'bg-gray-300');
+                generateBtn.classList.add('btn-primary');
+            } else {
+                generateBtn.disabled = true;
+                generateBtn.classList.add('btn-disabled', 'bg-gray-300');
+                generateBtn.classList.remove('btn-primary');
+            }
+        }
+        
+        // Update word and character counts in the output textarea
+        function updateCounts() {
+            const text = document.getElementById('cover-letter-output').value;
+            // Word count
+            const wordCount = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+            document.getElementById('word-count').textContent = wordCount;
+            
+            // Character count
+            const charCount = text.length;
+            document.getElementById('character-count').textContent = charCount;
+        }
+        
+        // Theme selector functionality
+        document.getElementById('theme-selector').addEventListener('change', function() {
+            document.documentElement.setAttribute('data-theme', this.value);
+        });
+        
+        // Copy to clipboard functionality using DaisyUI toast
+        function copyToClipboard() {
+            const textarea = document.getElementById('cover-letter-output');
+            
+            // Select the text first for better user feedback
+            textarea.select();
+            
+            navigator.clipboard.writeText(textarea.value)
+                .then(() => {
+                    // Show DaisyUI toast notification
+                    const toastContainer = document.getElementById('toast-container');
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-success';
+                    toast.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span>Cover letter copied to clipboard!</span>
+                    `;
+                    toastContainer.appendChild(toast);
+                    
+                    // Remove toast after 3 seconds
+                    setTimeout(() => {
+                        toast.remove();
+                    }, 3000);
+                })
+                .catch(err => {
+                    console.error('Failed to copy: ', err);
+                    
+                    // Show error toast
+                    const toastContainer = document.getElementById('toast-container');
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-error';
+                    toast.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span>Failed to copy to clipboard.</span>
+                    `;
+                    toastContainer.appendChild(toast);
+                    
+                    // Remove toast after 3 seconds
+                    setTimeout(() => {
+                        toast.remove();
+                    }, 3000);
+                });
+        }
+        
+        // Add event listeners
+        document.getElementById('cv_file').addEventListener('change', validateForm);
+        document.getElementById('job_desc_text').addEventListener('input', validateForm);
+        document.getElementById('job_desc_image').addEventListener('change', validateForm);
+        document.getElementById('cover-letter-output').addEventListener('input', updateCounts);
+        
+        // Listen for HTMX afterSwap event to update counts after generation
+        document.body.addEventListener('htmx:afterSwap', function(event) {
+            if (event.detail.target.id === 'cover-letter-output') {
+                updateCounts();
+            }
+        });
+        
+        // Initialize form validation on page load
+        validateForm();
+    </script>
+</body>
+</html>

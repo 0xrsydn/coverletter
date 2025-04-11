@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import logging
 import os
 import uuid
@@ -86,6 +88,18 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# --- Add Static Files Mounting ---
+# Create static directory if it doesn't exist
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+os.makedirs(static_dir, exist_ok=True) 
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# --- Add Jinja2Templates Configuration ---
+# Create templates directory if it doesn't exist
+templates_dir = os.path.join(os.path.dirname(__file__), "templates")
+os.makedirs(templates_dir, exist_ok=True)
+templates = Jinja2Templates(directory=templates_dir)
+
 # Add request ID middleware
 app.middleware("http")(request_id_middleware)
 
@@ -113,10 +127,13 @@ app.include_router(company_router)
 app.include_router(document_router)
 app.include_router(cover_letter_router)
 
+# --- Modify Root Endpoint to Serve HTML ---
 # Root endpoint
-@app.get("/")
-async def root():
-    return {"message": "Welcome to the Cover Letter Generator API"}
+@app.get("/", response_class=HTMLResponse) # Add new root endpoint for HTML
+async def read_root(request: Request): # Add request parameter
+    # Render the index.html template
+    # Pass the request object to the template context, required by Jinja2Templates
+    return templates.TemplateResponse("index.html", {"request": request})
 
 # Health check endpoint
 @app.get("/health")

@@ -9,3 +9,4 @@ exa-py
 slowapi==0.1.8
 prometheus-fastapi-instrumentator
 psutil==5.9.5
+jinja2

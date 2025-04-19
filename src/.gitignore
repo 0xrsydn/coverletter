@@ -10,3 +10,4 @@ htmlcov/
 .idea/
 .vscode/
 tmp/
+node_modules/

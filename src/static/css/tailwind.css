@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom CSS */
+#cover-letter-output {
+    white-space: pre-wrap;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+}
+
+/* Style for disabled button during loading */
+.htmx-request.btn-primary {
+    background-color: #d1d5db !important;
+    border-color: #d1d5db !important;
+    color: #6b7280 !important;
+    cursor: not-allowed;
+} 

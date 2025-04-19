@@ -4,26 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cover Letter Generator</title>
-    <!-- Include Tailwind CSS and DaisyUI via CDN -->
-    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Include HTMX for form submission -->
-    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
-    <style>
-        #cover-letter-output {
-            white-space: pre-wrap;
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-        }
-        
-        /* Style for disabled button during loading */
-        .htmx-request.btn-primary {
-            background-color: #d1d5db !important;
-            border-color: #d1d5db !important;
-            color: #6b7280 !important;
-            cursor: not-allowed;
-        }
-    </style>
+    <!-- Use locally compiled CSS instead of CDN -->
+    <link href="/static/css/main.css" rel="stylesheet" type="text/css" />
+    <!-- Include locally served HTMX -->
+    <script src="/static/js/htmx.min.js"></script>
 </head>
 <body class="bg-base-100">
     <div class="container mx-auto p-4">

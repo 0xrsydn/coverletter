@@ -1,0 +1,16 @@
+<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background rounded square -->
+  <rect x="1" y="1" width="30" height="30" rx="6" fill="#4F46E5" />
+  
+  <!-- Paper/document -->
+  <rect x="6" y="5" width="20" height="22" rx="2" fill="white" />
+  
+  <!-- Text lines representing content -->
+  <rect x="9" y="9" width="14" height="1.5" rx="0.75" fill="#CBD5E1" />
+  <rect x="9" y="12.5" width="10" height="1.5" rx="0.75" fill="#CBD5E1" />
+  <rect x="9" y="16" width="14" height="1.5" rx="0.75" fill="#CBD5E1" />
+  <rect x="9" y="19.5" width="8" height="1.5" rx="0.75" fill="#CBD5E1" />
+  
+  <!-- Checkmark/personalization element -->
+  <path d="M22 22.5L24 24.5L28 20.5" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>

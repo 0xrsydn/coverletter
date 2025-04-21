@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build:css": "postcss static/css/tailwind.css -o static/css/main.css",
+    "build:css:prod": "NODE_ENV=production postcss static/css/tailwind.css -o static/css/main.css",
     "watch:css": "postcss static/css/tailwind.css -o static/css/main.css --watch"
   },
   "devDependencies": {

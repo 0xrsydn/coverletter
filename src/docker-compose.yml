@@ -12,12 +12,18 @@ x-logging: &default-logging
 
 services:
   api:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
     container_name: cover-letter-api
     ports:
       - "8000:8000"
     env_file:
       - .env
+    volumes:
+      - ./static:/app/static
     networks:
       - brutaljokerz
     healthcheck:

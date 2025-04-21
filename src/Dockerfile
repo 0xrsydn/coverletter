@@ -5,21 +5,32 @@ WORKDIR /app
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app \
+    NODE_VERSION=18.x
 
-# Install system dependencies
+# Install system dependencies and Node.js
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - \
+    && apt-get install -y nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install dependencies
+# Copy package files and install Node dependencies first (for better caching)
+COPY package*.json ./
+RUN npm install
+
+# Copy Python requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
+
+# Build CSS for production
+RUN npm run build:css:prod
 
 # Expose application port
 EXPOSE 8000

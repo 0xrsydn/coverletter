@@ -5,8 +5,8 @@ PyMuPDF==1.23.6
 python-docx==0.8.11
 requests==2.31.0
 python-dotenv==1.0.0
-exa-py
+exa-py==1.12.1
 slowapi==0.1.8
-prometheus-fastapi-instrumentator
+prometheus-fastapi-instrumentator==7.1.0
 psutil==5.9.5
-jinja2
+jinja2==3.1.6

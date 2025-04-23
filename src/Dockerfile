@@ -13,10 +13,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     gnupg \
+    ca-certificates \
     && curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - \
     && apt-get install -y nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Copy UV directly from the official image
+COPY --from=ghcr.io/astral-sh/uv:0.6.16 /uv /bin/uv
+
+# Create and activate a virtual environment
+RUN uv venv /opt/venv
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy package files and install Node dependencies first (for better caching)
 COPY package*.json ./
@@ -24,7 +33,7 @@ RUN npm install
 
 # Copy Python requirements and install dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN uv pip install -r requirements.txt
 
 # Copy application code
 COPY . .

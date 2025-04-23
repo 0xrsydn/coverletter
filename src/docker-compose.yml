@@ -1,14 +1,15 @@
 # Define the logging configuration for Loki
-x-logging: &default-logging
-  driver: loki
-  options:
-    loki-url: "http://loki:3100/loki/api/v1/push"
-    loki-pipeline-stages: |
-      - multiline:
-          firstline: '^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2}'
-          max_wait_time: 3s
-      - regex:
-          expression: '^(?P<time>\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2},\d{3}) (?P<message>(?s:.*))$$'
+# Commented out for local development
+# x-logging: &default-logging
+#   driver: loki
+#   options:
+#     loki-url: "http://loki:3100/loki/api/v1/push"
+#     loki-pipeline-stages: |
+#       - multiline:
+#           firstline: '^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2}'
+#           max_wait_time: 3s
+#       - regex:
+#           expression: '^(?P<time>\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}:\d{2},\d{3}) (?P<message>(?s:.*))$$'
 
 services:
   api:
@@ -32,7 +33,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
-    logging: *default-logging
+    # logging: *default-logging
 
 networks:
   brutaljokerz:

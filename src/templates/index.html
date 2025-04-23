@@ -95,8 +95,17 @@
                     <div id="job-desc-image-container" class="form-control hidden">
                         <label class="label" for="job_desc_image">
                             <span class="label-text">Upload Job Description Image</span>
+                            <span class="label-text-alt text-info">You can also paste (Ctrl+V or ⌘V) an image directly</span>
                         </label>
-                        <input type="file" name="job_desc_image" id="job_desc_image" class="file-input file-input-bordered w-full">
+                        <div class="relative">
+                            <div class="flex items-center">
+                                <input type="file" name="job_desc_image" id="job_desc_image" class="file-input file-input-bordered w-full">
+                                <button type="button" id="remove-pasted-image" class="btn btn-xs btn-circle btn-error ml-2 hidden">✕</button>
+                            </div>
+                            <div id="paste-preview" class="mt-2 hidden" style="max-width: 150px; overflow: hidden;">
+                                <img id="pasted-image-preview" style="width: 120px; height: auto; max-height: 80px; object-fit: contain;" class="rounded-lg shadow-sm" />
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="form-control">
@@ -180,6 +189,7 @@
                 imageContainer.classList.add('hidden');
                 // Clear image file when switching to text
                 document.getElementById('job_desc_image').value = '';
+                document.getElementById('paste-preview').classList.add('hidden');
             } else {
                 textContainer.classList.add('hidden');
                 imageContainer.classList.remove('hidden');
@@ -290,8 +300,73 @@
             }
         });
         
-        // Initialize form validation on page load
-        validateForm();
+        // Set theme selector to match current theme
+        document.getElementById('theme-selector').value = document.documentElement.getAttribute('data-theme');
+        
+        // Add clipboard paste functionality
+        document.addEventListener('paste', function(event) {
+            const items = (event.clipboardData || event.originalEvent.clipboardData).items;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const file = items[i].getAsFile();
+                    
+                    // Create a file transfer that simulates user input for the file input
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    
+                    // Set the file input value to our pasted file
+                    const fileInput = document.getElementById('job_desc_image');
+                    fileInput.files = dataTransfer.files;
+                    
+                    // Show preview
+                    const pastePreview = document.getElementById('paste-preview');
+                    const pastedImagePreview = document.getElementById('pasted-image-preview');
+                    const removeButton = document.getElementById('remove-pasted-image');
+                    
+                    // Show the remove button
+                    removeButton.classList.remove('hidden');
+                    
+                    const reader = new FileReader();
+                    
+                    reader.onload = function(e) {
+                        pastedImagePreview.src = e.target.result;
+                        pastePreview.classList.remove('hidden');
+                    };
+                    
+                    reader.readAsDataURL(file);
+                    
+                    // Toggle to image mode if not already there
+                    const imageRadio = document.querySelector('input[name="job_desc_format"][value="image"]');
+                    if (!imageRadio.checked) {
+                        imageRadio.checked = true;
+                        toggleJobDescFormat(imageRadio);
+                    }
+                    
+                    // Ensure form validation gets updated
+                    validateForm();
+                    break;
+                }
+            }
+        });
+
+        // Handle removal of pasted image
+        document.getElementById('remove-pasted-image').addEventListener('click', function() {
+            const fileInput = document.getElementById('job_desc_image');
+            fileInput.value = '';
+            document.getElementById('paste-preview').classList.add('hidden');
+            this.classList.add('hidden');
+            validateForm();
+        });
+
+        // Add an event listener to the file input to show/hide the remove button
+        document.getElementById('job_desc_image').addEventListener('change', function() {
+            const removeButton = document.getElementById('remove-pasted-image');
+            if (this.files.length > 0) {
+                removeButton.classList.remove('hidden');
+            } else {
+                removeButton.classList.add('hidden');
+            }
+        });
     </script>
 </body>
 </html>

@@ -8,7 +8,7 @@ import os
 import uuid
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, HTTPException, UploadFile, File, Request
-from typing import Optional
+from typing import Optional, List
 import time
 from contextvars import ContextVar
 
@@ -161,6 +161,74 @@ async def health_check():
         "timestamp": time.time()
     }
 
+# Define allowed file types and size limits
+ALLOWED_CV_EXTENSIONS = ['.pdf', '.docx', '.doc']
+ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png']
+ALLOWED_CV_CONTENT_TYPES = [
+    'application/pdf', 
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword'
+]
+ALLOWED_IMAGE_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/jpg']
+MAX_CV_SIZE_MB = 3
+MAX_IMAGE_SIZE_MB = 5
+
+def validate_file(
+    file: UploadFile, 
+    allowed_extensions: List[str], 
+    allowed_content_types: List[str], 
+    max_size_mb: int, 
+    field_name: str
+) -> None:
+    """
+    Validate a file upload based on extension, content type, and size.
+    
+    Args:
+        file: The uploaded file to validate
+        allowed_extensions: List of allowed file extensions (including period)
+        allowed_content_types: List of allowed content types
+        max_size_mb: Maximum file size in MB
+        field_name: Name of the field for error messages
+        
+    Raises:
+        ValidationError: If validation fails
+    """
+    if not file:
+        return
+        
+    # Get file extension
+    file_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ''
+    
+    # Validate file extension
+    if file_ext not in allowed_extensions:
+        allowed_ext_str = ', '.join(allowed_extensions)
+        raise ValidationError(
+            f"File must be one of these types: {allowed_ext_str}",
+            field=field_name
+        )
+    
+    # Validate content type
+    if file.content_type not in allowed_content_types:
+        allowed_types_str = ', '.join(allowed_content_types)
+        raise ValidationError(
+            f"File content type must be one of: {allowed_types_str}",
+            field=field_name
+        )
+        
+    # Check file size by reading the first chunk
+    file.file.seek(0, 2)  # Seek to the end
+    file_size = file.file.tell()  # Get current position
+    file.file.seek(0)  # Reset to beginning
+    
+    # Convert bytes to MB
+    file_size_mb = file_size / (1024 * 1024)
+    
+    if file_size_mb > max_size_mb:
+        raise ValidationError(
+            f"File too large ({file_size_mb:.2f}MB). Maximum allowed size is {max_size_mb}MB",
+            field=field_name
+        )
+
 # Main cover letter generation endpoint
 @app.post("/api/generate_cover_letter", response_class=PlainTextResponse)
 @limiter.limit(config["rate_limits"]["endpoints"]["generate_cover_letter"])
@@ -196,16 +264,35 @@ async def generate_cover_letter_main(
         if word_limit and (word_limit < 250 or word_limit > 400):
             raise ValidationError("Word limit must be between 250 and 400 words")
         
+        # Validate CV file
+        validate_file(
+            cv_file, 
+            ALLOWED_CV_EXTENSIONS, 
+            ALLOWED_CV_CONTENT_TYPES, 
+            MAX_CV_SIZE_MB, 
+            "cv_file"
+        )
+        
+        # Validate job description image if provided
+        if job_desc_image:
+            validate_file(
+                job_desc_image, 
+                ALLOWED_IMAGE_EXTENSIONS, 
+                ALLOWED_IMAGE_CONTENT_TYPES, 
+                MAX_IMAGE_SIZE_MB, 
+                "job_desc_image"
+            )
+            
         # Step 1: Process CV document
         try:
             with StepTimer("document_processing", request_id):
                 cv_text = await extract_docs(cv_file)
                 if not cv_text or len(cv_text.strip()) < 10:
-                    raise DocumentProcessingError("Could not extract sufficient text from CV document")
+                    raise DocumentProcessingError("Could not extract sufficient text from CV document", "CV")
                 logger.info(f"CV processed: {len(cv_text)} characters extracted")
         except Exception as e:
             logger.error(f"Error processing document: {str(e)}")
-            raise DocumentProcessingError(f"Error processing your CV: {str(e)}")
+            raise DocumentProcessingError(f"Error processing your CV: {str(e)}", "CV")
         
         # Step 2: Process job description
         job_description = None

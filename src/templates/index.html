@@ -63,7 +63,9 @@
                         <label class="label" for="cv_file">
                             <span class="label-text">Upload CV (PDF, DOCX, etc.)</span>
                         </label>
-                        <input type="file" name="cv_file" id="cv_file" class="file-input file-input-bordered w-full" required>
+                        <input type="file" name="cv_file" id="cv_file" class="file-input file-input-bordered w-full" 
+                               accept=".pdf,.docx,.doc" required>
+                        <div id="cv-file-error" class="text-error text-sm mt-1 hidden"></div>
                     </div>
                     
                     <!-- Job Description Format Radio Buttons -->
@@ -99,9 +101,11 @@
                         </label>
                         <div class="relative">
                             <div class="flex items-center">
-                                <input type="file" name="job_desc_image" id="job_desc_image" class="file-input file-input-bordered w-full">
+                                <input type="file" name="job_desc_image" id="job_desc_image" class="file-input file-input-bordered w-full"
+                                       accept="image/png,image/jpeg,image/jpg">
                                 <button type="button" id="remove-pasted-image" class="btn btn-xs btn-circle btn-error ml-2 hidden">✕</button>
                             </div>
+                            <div id="job-image-error" class="text-error text-sm mt-1 hidden"></div>
                             <div id="paste-preview" class="mt-2 hidden" style="max-width: 150px; overflow: hidden;">
                                 <img id="pasted-image-preview" style="width: 120px; height: auto; max-height: 80px; object-fit: contain;" class="rounded-lg shadow-sm" />
                             </div>
@@ -179,6 +183,48 @@
         // Set current year for copyright
         document.getElementById('current-year').textContent = new Date().getFullYear();
         
+        // File validation constants
+        const MAX_CV_SIZE_MB = 3;
+        const MAX_IMAGE_SIZE_MB = 5;
+        const ALLOWED_CV_TYPES = [
+            'application/pdf', 
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+            'application/msword'
+        ];
+        const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
+        
+        // File validation function
+        function validateFile(file, allowedTypes, maxSizeMB, errorElementId) {
+            const errorElement = document.getElementById(errorElementId);
+            errorElement.classList.add('hidden');
+            
+            if (!file) return true;
+            
+            // Check file type
+            if (!allowedTypes.includes(file.type)) {
+                const typeNames = allowedTypes.map(type => {
+                    if (type.includes('pdf')) return 'PDF';
+                    if (type.includes('word') || type.includes('msword')) return 'Word';
+                    if (type.includes('image')) return type.split('/')[1].toUpperCase();
+                    return type;
+                }).join(', ');
+                
+                errorElement.textContent = `Invalid file type. Allowed: ${typeNames}`;
+                errorElement.classList.remove('hidden');
+                return false;
+            }
+            
+            // Check file size
+            const fileSizeMB = file.size / (1024 * 1024);
+            if (fileSizeMB > maxSizeMB) {
+                errorElement.textContent = `File too large (${fileSizeMB.toFixed(2)}MB). Maximum: ${maxSizeMB}MB`;
+                errorElement.classList.remove('hidden');
+                return false;
+            }
+            
+            return true;
+        }
+        
         // Toggle between text and image job description formats
         function toggleJobDescFormat(radioBtn) {
             const textContainer = document.getElementById('job-desc-text-container');
@@ -202,17 +248,35 @@
         
         // Validate form and update button state
         function validateForm() {
-            const resumeFile = document.getElementById('cv_file').files.length > 0;
+            const cvFile = document.getElementById('cv_file').files[0];
             const jobDescFormat = document.querySelector('input[name="job_desc_format"]:checked').value;
             
             let isJobDescFilled = false;
+            let isValid = false;
+            
+            // Validate CV file
+            const isCvValid = validateFile(
+                cvFile, 
+                ALLOWED_CV_TYPES, 
+                MAX_CV_SIZE_MB, 
+                'cv-file-error'
+            );
+            
             if (jobDescFormat === 'text') {
                 isJobDescFilled = document.getElementById('job_desc_text').value.trim() !== '';
+                isValid = isCvValid && isJobDescFilled;
             } else {
-                isJobDescFilled = document.getElementById('job_desc_image').files.length > 0;
+                const jobImage = document.getElementById('job_desc_image').files[0];
+                const isImageValid = validateFile(
+                    jobImage, 
+                    ALLOWED_IMAGE_TYPES, 
+                    MAX_IMAGE_SIZE_MB, 
+                    'job-image-error'
+                );
+                isJobDescFilled = jobImage !== undefined;
+                isValid = isCvValid && isJobDescFilled && isImageValid;
             }
             
-            const isValid = resumeFile && isJobDescFilled;
             const generateBtn = document.getElementById('generate-btn');
             
             if (isValid) {
@@ -309,6 +373,16 @@
             for (let i = 0; i < items.length; i++) {
                 if (items[i].type.indexOf('image') !== -1) {
                     const file = items[i].getAsFile();
+                    
+                    // Validate the pasted image
+                    if (!validateFile(
+                        file, 
+                        ALLOWED_IMAGE_TYPES, 
+                        MAX_IMAGE_SIZE_MB, 
+                        'job-image-error'
+                    )) {
+                        return;
+                    }
                     
                     // Create a file transfer that simulates user input for the file input
                     const dataTransfer = new DataTransfer();

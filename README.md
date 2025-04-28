@@ -44,15 +44,16 @@ This project uses AI to streamline the job application process by generating per
 
 2.  **Set up Python Environment:**
     ```bash
-    # Create a virtual environment (optional but recommended)
-    python -m venv .venv #or using uv venv
+    # Create a virtual environment (optional but recommended) using uv
+    uv venv
     source .venv/bin/activate  # Linux/Mac
     # .venv\Scripts\activate    # Windows
 
-    # Install Python dependencies
-    pip install -r requirements.txt
-    # or using uv:
-    # uv pip install -r requirements.txt
+    # Install Python dependencies using uv
+    uv pip install -r requirements.txt
+    # Or using pip:
+    # python -m venv .venv 
+    # pip install -r requirements.txt
     ```
 
 3.  **Configure Environment:**
@@ -87,9 +88,10 @@ This project uses AI to streamline the job application process by generating per
 2.  **Build and run using Docker Compose:**
     ```bash
     # From the project root (coverletter/)
-    docker-compose -f src/docker-compose.yml up -d --build
+    docker compose -f src/docker-compose.yml up -d --build
     ```
-    The application will be available at http://localhost:8000 (or your server's IP).
+    The application will be available at http://localhost:8000 (or your server's IP). For development environment, you can      
+    comment out Loki logging configuration if you don't need it.
 
 ## Environment Configuration
 
